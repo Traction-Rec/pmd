@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<test-data
+        xmlns="http://pmd.sourceforge.net/rule-tests"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://pmd.sourceforge.net/rule-tests http://pmd.sourceforge.net/rule-tests_1_0_0.xsd">
+
+    <test-code>
+        <description>Apex class that directly extends exception</description>
+        <expected-problems>1</expected-problems>
+        <code><![CDATA[
+public class TestException extends Exception {}
+		]]></code>
+    </test-code>
+    <test-code>
+        <description>Inner Apex class that directly extends exception</description>
+        <expected-problems>1</expected-problems>
+        <code><![CDATA[
+public class TestApexClass {
+    public class InnerException extends Exception {
+
+    }
+}
+		]]></code>
+    </test-code>
+    <test-code>
+        <description>TrecException class can directly extend exception</description>
+        <expected-problems>0</expected-problems>
+        <code><![CDATA[
+public class TrecException extends Exception {}
+		]]></code>
+    </test-code>
+
+</test-data>
