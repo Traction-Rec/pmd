@@ -177,6 +177,79 @@ public without sharing class Foo {
         </example>
     </rule>
 
+    <rule name="ApexRecSharingViolations"
+          since="6.11.0"
+          message="Apex classes should always declare a sharing model"
+          class="net.sourceforge.pmd.lang.apex.rule.security.ApexRecSharingViolationsRule"
+          externalInfoUrl="${pmd.website.baseurl}/pmd_rules_apex_security.html#apexrecsharingviolations">
+        <description>
+            Detect classes declared without explicit sharing mode.
+        </description>
+        <priority>3</priority>
+        <example>
+            <![CDATA[
+public without sharing class Foo {
+}
+]]>
+        </example>
+    </rule>
+
+    <rule name="ApexRecSystemDebugRestriction"
+          since="6.11.0"
+          message="Apex classes other than Log or tests should not call System.debug"
+          class="net.sourceforge.pmd.lang.apex.rule.security.ApexRecSystemDebugRestrictionRule"
+          externalInfoUrl="${pmd.website.baseurl}/pmd_rules_apex_security.html#apexrecsystemdebugrestriction">
+        <description>
+Detect classes that call System.debug which could leak sensitive info to the client
+        </description>
+        <priority>3</priority>
+        <example>
+<![CDATA[
+public class Foo {
+    static void test() {
+        System.debug('test');
+    }
+}
+]]>
+        </example>
+    </rule>
+
+    <rule name="ApexRecRestrictExtendingException"
+          since="6.11.0"
+          message="Classes should extend TrecException, not Exception so that exception messages can be sanitized"
+          class="net.sourceforge.pmd.lang.apex.rule.security.ApexRecRestrictExtendingExceptionRule"
+          externalInfoUrl="${pmd.website.baseurl}/pmd_rules_apex_security.html#apexrecrestrictextendingexception">
+        <description>
+Detect classes that inappropriately extend Exception instead of TrecException
+        </description>
+        <priority>1</priority>
+        <example>
+<![CDATA[
+public class FooException extends Exception {}
+]]>
+        </example>
+    </rule>
+
+    <rule name="ApexRecRestrictDatabaseUsage"
+          since="6.11.0"
+          message="Classes should only use UnitOfWork and QueryFactory to modify the database"
+          class="net.sourceforge.pmd.lang.apex.rule.security.ApexRecRestrictDatabaseUsageRule"
+          externalInfoUrl="${pmd.website.baseurl}/pmd_rules_apex_security.html#apexrecrestrictdatabaseusage">
+        <description>
+Detect classes that inappropriately use DML instead of UnitOfWork
+        </description>
+        <priority>1</priority>
+        <example>
+<![CDATA[
+public class Foo {
+    public void doInsert() {
+        insert new Account();
+    }
+}
+]]>
+        </example>
+    </rule>
+
     <rule name="ApexSOQLInjection"
           since="5.5.3"
           message="Avoid untrusted/unescaped variables in DML query"
