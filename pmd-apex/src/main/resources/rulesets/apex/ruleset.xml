@@ -441,4 +441,7 @@
          <property name="cc_block_highlighting" value="false" />
       </properties>
    </rule>
+   <rule ref="category/apex/documentation.xml/ApexRecDoc" message="Document classes, methods, and properties that are public or global.">
+      <priority>3</priority>
+   </rule>
 </ruleset>
