@@ -8,7 +8,7 @@ public class ApexRecSystemDebugRestrictionRule extends AbstractApexRule {
     @Override
     public Object visit(ASTMethodCallExpression node, Object data) {
         final String className = node.getNode().getDefiningType().getApexName();
-        if (Helper.isTestMethodOrClass(node) ||
+        if (RecHelper.isTestMethodOrClass(node) ||
                 "Log".equals(className) ||
                 "LogData".equals(className)) {
             return data; // stops all the rules

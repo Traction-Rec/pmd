@@ -32,16 +32,16 @@ public class ApexRecRestrictDatabaseUsageRule extends AbstractApexRule {
     @Override
     public Object visit(ASTUserClass node, Object data) {
         // Not interested in tests
-        final String className = Helper.getClassName(node);
+        final String className = RecHelper.getClassName(node);
         final List<String> allowedClasses =
                 Arrays.asList(getProperty(CLASSES_ALLOWED_DATABASE_ACCESS_CSV_PROPERTY).split("\\s*,\\s*"));
-        if (Helper.isTestMethodOrClass(node) || allowedClasses.contains(className)) {
+        if (RecHelper.isTestMethodOrClass(node) || allowedClasses.contains(className)) {
             return data;
         }
 
         // if class calls the database add an error
-        List<AbstractApexNode<?>> databaseAccessNodes = Helper.getAllDatabaseAccessNodesNotInSubclasses(node);
-        List<String> allowedMethodNames = Helper.convertListStringToLowerCase(
+        List<AbstractApexNode<?>> databaseAccessNodes = RecHelper.getAllDatabaseAccessNodesNotInSubclasses(node);
+        List<String> allowedMethodNames = RecHelper.convertListStringToLowerCase(
                 Arrays.asList(getProperty(UNRESTRICTED_DATABASE_METHODS_CSV_PROPERTY).split("\\s*,\\s*"))
         );
         if (!databaseAccessNodes.isEmpty()) {

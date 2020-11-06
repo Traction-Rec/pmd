@@ -15,7 +15,7 @@ public class ApexRecSharingViolationsRule extends AbstractApexRule {
 
     @Override
     public Object visit(ASTUserClass node, Object data) {
-        if (Helper.isTestMethodOrClass(node)) {
+        if (RecHelper.isTestMethodOrClass(node)) {
             return data; // stops all the rules
         }
 
