@@ -4,10 +4,28 @@
 
 package net.sourceforge.pmd.lang.apex.rule.security;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 
-import apex.jorje.semantic.symbol.type.CodeUnitDetails;
-import net.sourceforge.pmd.lang.apex.ast.*;
+import net.sourceforge.pmd.lang.apex.ast.ASTDmlDeleteStatement;
+import net.sourceforge.pmd.lang.apex.ast.ASTDmlInsertStatement;
+import net.sourceforge.pmd.lang.apex.ast.ASTDmlMergeStatement;
+import net.sourceforge.pmd.lang.apex.ast.ASTDmlUndeleteStatement;
+import net.sourceforge.pmd.lang.apex.ast.ASTDmlUpdateStatement;
+import net.sourceforge.pmd.lang.apex.ast.ASTDmlUpsertStatement;
+import net.sourceforge.pmd.lang.apex.ast.ASTField;
+import net.sourceforge.pmd.lang.apex.ast.ASTFieldDeclaration;
+import net.sourceforge.pmd.lang.apex.ast.ASTMethodCallExpression;
+import net.sourceforge.pmd.lang.apex.ast.ASTModifierNode;
+import net.sourceforge.pmd.lang.apex.ast.ASTNewKeyValueObjectExpression;
+import net.sourceforge.pmd.lang.apex.ast.ASTReferenceExpression;
+import net.sourceforge.pmd.lang.apex.ast.ASTSoqlExpression;
+import net.sourceforge.pmd.lang.apex.ast.ASTSoslExpression;
+import net.sourceforge.pmd.lang.apex.ast.ASTUserClass;
+import net.sourceforge.pmd.lang.apex.ast.ASTVariableDeclaration;
+import net.sourceforge.pmd.lang.apex.ast.ASTVariableExpression;
+import net.sourceforge.pmd.lang.apex.ast.ApexNode;
 
 import apex.jorje.data.Identifier;
 import apex.jorje.data.ast.TypeRef;
@@ -18,7 +36,6 @@ import apex.jorje.semantic.ast.member.Field;
 import apex.jorje.semantic.ast.member.Parameter;
 import apex.jorje.semantic.ast.statement.FieldDeclaration;
 import apex.jorje.semantic.ast.statement.VariableDeclaration;
-import net.sourceforge.pmd.lang.apex.rule.AbstractApexRule;
 
 /**
  * Helper methods
@@ -26,32 +43,14 @@ import net.sourceforge.pmd.lang.apex.rule.AbstractApexRule;
  * @author sergey.gorbaty
  *
  */
-public final class Helper {
+public class Helper {
     static final String ANY_METHOD = "*";
 
-    private Helper() {
+    protected Helper() {
         throw new AssertionError("Can't instantiate helper classes");
     }
 
-    static String getClassName(final ApexNode<?> node) {
-        return node.getNode().getDefiningType().getApexName();
-    }
-
-    static String getSuperType(final ApexNode<?> node) {
-        CodeUnitDetails details = node.getNode().getDefiningType().getCodeUnitDetails();
-        Optional<TypeRef> optionalTypeRef = details.getSuperTypeRef();
-        if (!optionalTypeRef.isPresent()) {
-            return "";
-        } else {
-            return optionalTypeRef.get().toString();
-        }
-    }
-
     static boolean isTestMethodOrClass(final ApexNode<?> node) {
-        ASTUserClass parentClass = node.getFirstParentOfType(ASTUserClass.class);
-        if (parentClass != null && isTestMethodOrClass(parentClass)) {
-            return true;
-        }
         final List<ASTModifierNode> modifierNode = node.findChildrenOfType(ASTModifierNode.class);
         for (final ASTModifierNode m : modifierNode) {
             if (m.getNode().getModifiers().isTest()) {
@@ -60,83 +59,14 @@ public final class Helper {
         }
 
         final String className = node.getNode().getDefiningType().getApexName();
-        return className.endsWith("Test") || className.endsWith("_t") || className.endsWith("Test_serial");
-    }
-
-    /**
-     * @param node The user class
-     * @return All children database access nodes in this class that are not in a subclass
-     */
-    static List<AbstractApexNode<?>> getAllDatabaseAccessNodesNotInSubclasses(final ASTUserClass node) {
-        List<AbstractApexNode<?>> databaseAccessNodes = getAllDatabaseAccessNodes(node);
-        List<AbstractApexNode<?>> nonSubclassDatabaseAccessNodes = new ArrayList<>();
-        final String className = getClassName(node);
-        for (AbstractApexNode<?> databaseAccessNode : databaseAccessNodes) {
-            if (getClassName(databaseAccessNode) == className) {
-                nonSubclassDatabaseAccessNodes.add(databaseAccessNode);
-            }
-        }
-        return nonSubclassDatabaseAccessNodes;
-    }
-
-    /**
-     * @param node The node
-     * @return All children database access nodes
-     */
-    static List<AbstractApexNode<?>> getAllDatabaseAccessNodes(final ApexNode<?> node) {
-        ArrayList<AbstractApexNode<?>> databaseAccessNodes = new ArrayList<>();
-        databaseAccessNodes.addAll(getAllDatabaseMethodCalls(node));
-        databaseAccessNodes.addAll(getAllInlineSoqlOrSosl(node));
-        databaseAccessNodes.addAll(getAllInlineDml(node));
-        return databaseAccessNodes;
-    }
-
-    /**
-     * Check if class contains any Database.query / Database.insert [ Database.*
-     * ] methods
-     *
-     * @param node The apex user class node
-     * @return The all database method call expression nodes
-     */
-    static List<ASTMethodCallExpression> getAllDatabaseMethodCalls(final ApexNode<?> node) {
-        List<ASTMethodCallExpression> calls = node.findDescendantsOfType(ASTMethodCallExpression.class);
-        ArrayList<ASTMethodCallExpression> databaseCalls = new ArrayList<>();
-        for (ASTMethodCallExpression call : calls) {
-            if (isMethodName(call, "Database", Helper.ANY_METHOD)) {
-                databaseCalls.add(call);
-            }
-        }
-        return databaseCalls;
-    }
-
-    /**
-     * @param node
-     * @return all inline SOSL or SOQL operations in a given node descendant's path
-     */
-    static ArrayList<AbstractApexNode<?>> getAllInlineSoqlOrSosl(final ApexNode<?> node) {
-        ArrayList<AbstractApexNode<?>> allDmlNodes = new ArrayList<>();
-        allDmlNodes.addAll(node.findDescendantsOfType(ASTSoqlExpression.class));
-        allDmlNodes.addAll(node.findDescendantsOfType(ASTSoslExpression.class));
-        return allDmlNodes;
+        return className.endsWith("Test");
     }
 
     static boolean foundAnySOQLorSOSL(final ApexNode<?> node) {
-        return !getAllInlineSoqlOrSosl(node).isEmpty();
-    }
+        final List<ASTSoqlExpression> dmlSoqlExpression = node.findDescendantsOfType(ASTSoqlExpression.class);
+        final List<ASTSoslExpression> dmlSoslExpression = node.findDescendantsOfType(ASTSoslExpression.class);
 
-    /**
-     * @param node
-     * @return all inline DML operations in a given node descendant's path
-     */
-    static ArrayList<AbstractApexNode<?>> getAllInlineDml(final ApexNode<?> node) {
-        ArrayList<AbstractApexNode<?>> allDmlNodes = new ArrayList<>();
-        allDmlNodes.addAll(node.findDescendantsOfType(ASTDmlUpsertStatement.class));
-        allDmlNodes.addAll(node.findDescendantsOfType(ASTDmlUpdateStatement.class));
-        allDmlNodes.addAll(node.findDescendantsOfType(ASTDmlUndeleteStatement.class));
-        allDmlNodes.addAll(node.findDescendantsOfType(ASTDmlMergeStatement.class));
-        allDmlNodes.addAll(node.findDescendantsOfType(ASTDmlInsertStatement.class));
-        allDmlNodes.addAll(node.findDescendantsOfType(ASTDmlDeleteStatement.class));
-        return allDmlNodes;
+        return !dmlSoqlExpression.isEmpty() || !dmlSoslExpression.isEmpty();
     }
 
     /**
@@ -147,7 +77,17 @@ public final class Helper {
      * @return true if found DML operations in node descendants
      */
     static boolean foundAnyDML(final ApexNode<?> node) {
-        return !getAllInlineDml(node).isEmpty();
+
+        final List<ASTDmlUpsertStatement> dmlUpsertStatement = node.findDescendantsOfType(ASTDmlUpsertStatement.class);
+        final List<ASTDmlUpdateStatement> dmlUpdateStatement = node.findDescendantsOfType(ASTDmlUpdateStatement.class);
+        final List<ASTDmlUndeleteStatement> dmlUndeleteStatement = node
+                .findDescendantsOfType(ASTDmlUndeleteStatement.class);
+        final List<ASTDmlMergeStatement> dmlMergeStatement = node.findDescendantsOfType(ASTDmlMergeStatement.class);
+        final List<ASTDmlInsertStatement> dmlInsertStatement = node.findDescendantsOfType(ASTDmlInsertStatement.class);
+        final List<ASTDmlDeleteStatement> dmlDeleteStatement = node.findDescendantsOfType(ASTDmlDeleteStatement.class);
+
+        return !dmlUpsertStatement.isEmpty() || !dmlUpdateStatement.isEmpty() || !dmlUndeleteStatement.isEmpty()
+                || !dmlMergeStatement.isEmpty() || !dmlInsertStatement.isEmpty() || !dmlDeleteStatement.isEmpty();
     }
 
     static boolean isMethodName(final ASTMethodCallExpression methodNode, final String className,
@@ -290,15 +230,6 @@ public final class Helper {
         StringBuffer sb = new StringBuffer();
         sb.append(p.getDefiningType()).append(":").append(p.getName().getValue());
         return sb.toString();
-    }
-
-    public static List<String> convertListStringToLowerCase(List<String> strings) {
-        List<String> lowerCaseStrings = new ArrayList<>();
-        ListIterator<String> iterator = strings.listIterator();
-        while (iterator.hasNext()) {
-            lowerCaseStrings.add(iterator.next().toLowerCase());
-        }
-        return lowerCaseStrings;
     }
 
 }
