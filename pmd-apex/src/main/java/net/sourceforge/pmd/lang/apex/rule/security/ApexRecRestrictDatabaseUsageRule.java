@@ -1,4 +1,12 @@
+/**
+ * BSD-style license; for more info see http://pmd.sourceforge.net/license.html
+ */
+
 package net.sourceforge.pmd.lang.apex.rule.security;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 
 import net.sourceforge.pmd.lang.apex.ast.ASTMethodCallExpression;
 import net.sourceforge.pmd.lang.apex.ast.ASTUserClass;
@@ -6,10 +14,6 @@ import net.sourceforge.pmd.lang.apex.ast.AbstractApexNode;
 import net.sourceforge.pmd.lang.apex.rule.AbstractApexRule;
 import net.sourceforge.pmd.properties.PropertyDescriptor;
 import net.sourceforge.pmd.properties.PropertyFactory;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 public class ApexRecRestrictDatabaseUsageRule extends AbstractApexRule {
 
@@ -49,7 +53,7 @@ public class ApexRecRestrictDatabaseUsageRule extends AbstractApexRule {
                 // If calling Database.x (i.e. not inline SOQL or SOSL) check if call is allowed
                 if (call instanceof ASTMethodCallExpression) {
                     ASTMethodCallExpression methodNode = (ASTMethodCallExpression) call;
-                    if (!allowedMethodNames.contains(methodNode.getMethodName().toLowerCase())) {
+                    if (!allowedMethodNames.contains(methodNode.getMethodName().toLowerCase(Locale.ROOT))) {
                         addViolation(data, call);
                     }
                 } else {

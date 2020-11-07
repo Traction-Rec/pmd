@@ -43,10 +43,10 @@ import apex.jorje.semantic.ast.statement.VariableDeclaration;
  * @author sergey.gorbaty
  *
  */
-public class Helper {
+public final class Helper {
     static final String ANY_METHOD = "*";
 
-    protected Helper() {
+    private Helper() {
         throw new AssertionError("Can't instantiate helper classes");
     }
 

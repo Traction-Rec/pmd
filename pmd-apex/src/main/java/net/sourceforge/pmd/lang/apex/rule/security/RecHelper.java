@@ -1,15 +1,34 @@
+/**
+ * BSD-style license; for more info see http://pmd.sourceforge.net/license.html
+ */
+
 package net.sourceforge.pmd.lang.apex.rule.security;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Locale;
+import java.util.Optional;
+
+import net.sourceforge.pmd.lang.apex.ast.ASTDmlDeleteStatement;
+import net.sourceforge.pmd.lang.apex.ast.ASTDmlInsertStatement;
+import net.sourceforge.pmd.lang.apex.ast.ASTDmlMergeStatement;
+import net.sourceforge.pmd.lang.apex.ast.ASTDmlUndeleteStatement;
+import net.sourceforge.pmd.lang.apex.ast.ASTDmlUpdateStatement;
+import net.sourceforge.pmd.lang.apex.ast.ASTDmlUpsertStatement;
+import net.sourceforge.pmd.lang.apex.ast.ASTMethodCallExpression;
+import net.sourceforge.pmd.lang.apex.ast.ASTSoqlExpression;
+import net.sourceforge.pmd.lang.apex.ast.ASTSoslExpression;
+import net.sourceforge.pmd.lang.apex.ast.ASTUserClass;
+import net.sourceforge.pmd.lang.apex.ast.AbstractApexNode;
+import net.sourceforge.pmd.lang.apex.ast.ApexNode;
 
 import apex.jorje.data.ast.TypeRef;
 import apex.jorje.semantic.symbol.type.CodeUnitDetails;
-import net.sourceforge.pmd.lang.apex.ast.*;
-import net.sourceforge.pmd.lang.apex.rule.AbstractApexRule;
 
-public class RecHelper extends Helper {
+public final class RecHelper {
     private RecHelper() {
-        super();
+        throw new AssertionError("Can't instantiate helper classes");
     }
 
     static String getClassName(final ApexNode<?> node) {
@@ -45,7 +64,7 @@ public class RecHelper extends Helper {
         List<AbstractApexNode<?>> nonSubclassDatabaseAccessNodes = new ArrayList<>();
         final String className = getClassName(node);
         for (AbstractApexNode<?> databaseAccessNode : databaseAccessNodes) {
-            if (getClassName(databaseAccessNode) == className) {
+            if (getClassName(databaseAccessNode).equals(className)) {
                 nonSubclassDatabaseAccessNodes.add(databaseAccessNode);
             }
         }
@@ -57,7 +76,7 @@ public class RecHelper extends Helper {
      * @return All children database access nodes
      */
     static List<AbstractApexNode<?>> getAllDatabaseAccessNodes(final ApexNode<?> node) {
-        ArrayList<AbstractApexNode<?>> databaseAccessNodes = new ArrayList<>();
+        List<AbstractApexNode<?>> databaseAccessNodes = new ArrayList<>();
         databaseAccessNodes.addAll(getAllDatabaseMethodCalls(node));
         databaseAccessNodes.addAll(getAllInlineSoqlOrSosl(node));
         databaseAccessNodes.addAll(getAllInlineDml(node));
@@ -73,9 +92,9 @@ public class RecHelper extends Helper {
      */
     static List<ASTMethodCallExpression> getAllDatabaseMethodCalls(final ApexNode<?> node) {
         List<ASTMethodCallExpression> calls = node.findDescendantsOfType(ASTMethodCallExpression.class);
-        ArrayList<ASTMethodCallExpression> databaseCalls = new ArrayList<>();
+        List<ASTMethodCallExpression> databaseCalls = new ArrayList<>();
         for (ASTMethodCallExpression call : calls) {
-            if (isMethodName(call, "Database", Helper.ANY_METHOD)) {
+            if (Helper.isMethodName(call, "Database", Helper.ANY_METHOD)) {
                 databaseCalls.add(call);
             }
         }
@@ -86,8 +105,8 @@ public class RecHelper extends Helper {
      * @param node
      * @return all inline SOSL or SOQL operations in a given node descendant's path
      */
-    static ArrayList<AbstractApexNode<?>> getAllInlineSoqlOrSosl(final ApexNode<?> node) {
-        ArrayList<AbstractApexNode<?>> allDmlNodes = new ArrayList<>();
+    static List<AbstractApexNode<?>> getAllInlineSoqlOrSosl(final ApexNode<?> node) {
+        List<AbstractApexNode<?>> allDmlNodes = new ArrayList<>();
         allDmlNodes.addAll(node.findDescendantsOfType(ASTSoqlExpression.class));
         allDmlNodes.addAll(node.findDescendantsOfType(ASTSoslExpression.class));
         return allDmlNodes;
@@ -97,8 +116,8 @@ public class RecHelper extends Helper {
      * @param node
      * @return all inline DML operations in a given node descendant's path
      */
-    static ArrayList<AbstractApexNode<?>> getAllInlineDml(final ApexNode<?> node) {
-        ArrayList<AbstractApexNode<?>> allDmlNodes = new ArrayList<>();
+    static List<AbstractApexNode<?>> getAllInlineDml(final ApexNode<?> node) {
+        List<AbstractApexNode<?>> allDmlNodes = new ArrayList<>();
         allDmlNodes.addAll(node.findDescendantsOfType(ASTDmlUpsertStatement.class));
         allDmlNodes.addAll(node.findDescendantsOfType(ASTDmlUpdateStatement.class));
         allDmlNodes.addAll(node.findDescendantsOfType(ASTDmlUndeleteStatement.class));
@@ -112,7 +131,7 @@ public class RecHelper extends Helper {
         List<String> lowerCaseStrings = new ArrayList<>();
         ListIterator<String> iterator = strings.listIterator();
         while (iterator.hasNext()) {
-            lowerCaseStrings.add(iterator.next().toLowerCase());
+            lowerCaseStrings.add(iterator.next().toLowerCase(Locale.ROOT));
         }
         return lowerCaseStrings;
     }
