@@ -4,15 +4,22 @@
 
 package net.sourceforge.pmd.lang.rule;
 
+import java.io.File;
 import java.util.regex.Pattern;
 
 import net.sourceforge.pmd.Rule;
 import net.sourceforge.pmd.RuleContext;
 import net.sourceforge.pmd.RuleViolation;
+import net.sourceforge.pmd.annotation.InternalApi;
 import net.sourceforge.pmd.lang.ast.Node;
 import net.sourceforge.pmd.properties.PropertyDescriptor;
 import net.sourceforge.pmd.util.StringUtil;
 
+/**
+ * @deprecated This is internal. Clients should exclusively use {@link RuleViolation}.
+ */
+@Deprecated
+@InternalApi
 public class ParametricRuleViolation<T extends Node> implements RuleViolation {
 
     protected final Rule rule;
@@ -38,8 +45,11 @@ public class ParametricRuleViolation<T extends Node> implements RuleViolation {
     public ParametricRuleViolation(Rule theRule, RuleContext ctx, T node, String message) {
         rule = theRule;
         description = message;
-        filename = ctx.getSourceCodeFilename();
-        if (filename == null) {
+
+        File file = ctx.getSourceCodeFile();
+        if (file != null) {
+            filename = file.getPath();
+        } else {
             filename = "";
         }
         if (node != null) {
@@ -75,7 +85,7 @@ public class ParametricRuleViolation<T extends Node> implements RuleViolation {
 
     protected String expandVariables(String message) {
 
-        if (message.indexOf("${") < 0) {
+        if (!message.contains("${")) {
             return message;
         }
 

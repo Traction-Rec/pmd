@@ -6,13 +6,14 @@ package net.sourceforge.pmd.lang.ast.xpath;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
+import net.sourceforge.pmd.annotation.Experimental;
+import net.sourceforge.pmd.annotation.InternalApi;
 import net.sourceforge.pmd.lang.ast.Node;
+import net.sourceforge.pmd.lang.ast.xpath.internal.DeprecatedAttribute;
 
 /**
  * Represents an XPath attribute of a specific node.
@@ -25,17 +26,12 @@ import net.sourceforge.pmd.lang.ast.Node;
  * @author daniels
  */
 public class Attribute {
-
-
-    private static final Logger LOG = Logger.getLogger(Attribute.class.getName());
-    private static final ConcurrentMap<String, Boolean> DETECTED_DEPRECATED_ATTRIBUTES = new ConcurrentHashMap<>();
-
     private static final Object[] EMPTY_OBJ_ARRAY = new Object[0];
 
     private final Node parent;
     private final String name;
     private Method method;
-    private Object value;
+    private List<?> value;
     private String stringValue;
 
     /** Creates a new attribute belonging to the given node using its accessor. */
@@ -49,7 +45,7 @@ public class Attribute {
     public Attribute(Node parent, String name, String value) {
         this.parent = parent;
         this.name = name;
-        this.value = value;
+        this.value = Collections.singletonList(value);
         this.stringValue = value;
     }
 
@@ -63,21 +59,44 @@ public class Attribute {
         return parent;
     }
 
+    /** Returns the most general type that the value may be. */
+    @Experimental
+    public Class<?> getType() {
+        return method == null ? String.class : method.getReturnType();
+    }
+
+    /**
+     * Returns null for "not deprecated", empty string for "deprecated without replacement",
+     * otherwise name of replacement attribute.
+     */
+    @InternalApi
+    public String replacementIfDeprecated() {
+        if (method == null) {
+            return null;
+        } else {
+            DeprecatedAttribute annot = method.getAnnotation(DeprecatedAttribute.class);
+            String result = annot != null
+                   ? annot.replaceWith()
+                   : method.isAnnotationPresent(Deprecated.class)
+                     ? DeprecatedAttribute.NO_REPLACEMENT
+                     : null;
+            if (result == null && List.class.isAssignableFrom(method.getReturnType())) {
+                // Lists are generally deprecated, see #2451
+                result = DeprecatedAttribute.NO_REPLACEMENT;
+            }
+            return result;
+        }
+    }
+
     public Object getValue() {
         if (value != null) {
-            return value;
-        }
-
-        if (method.isAnnotationPresent(Deprecated.class) && LOG.isLoggable(Level.WARNING)
-                && DETECTED_DEPRECATED_ATTRIBUTES.putIfAbsent(getLoggableAttributeName(), Boolean.TRUE) == null) {
-            // this message needs to be kept in sync with PMDCoverageTest
-            LOG.warning("Use of deprecated attribute '" + getLoggableAttributeName() + "' in XPath query");
+            return value.get(0);
         }
 
         // this lazy loading reduces calls to Method.invoke() by about 90%
         try {
-            value = method.invoke(parent, EMPTY_OBJ_ARRAY);
-            return value;
+            value = Collections.singletonList(method.invoke(parent, EMPTY_OBJ_ARRAY));
+            return value.get(0);
         } catch (IllegalAccessException | InvocationTargetException iae) {
             iae.printStackTrace();
         }
@@ -88,10 +107,8 @@ public class Attribute {
         if (stringValue != null) {
             return stringValue;
         }
-        Object v = this.value;
-        if (this.value == null) {
-            v = getValue();
-        }
+        Object v = getValue();
+
         stringValue = v == null ? "" : String.valueOf(v);
         return stringValue;
     }
@@ -114,11 +131,6 @@ public class Attribute {
     @Override
     public int hashCode() {
         return Objects.hash(parent, name);
-    }
-
-
-    private String getLoggableAttributeName() {
-        return parent.getXPathNodeName() + "/@" + name;
     }
 
     @Override

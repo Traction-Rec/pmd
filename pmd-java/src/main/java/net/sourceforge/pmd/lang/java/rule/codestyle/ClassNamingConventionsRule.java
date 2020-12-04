@@ -16,6 +16,7 @@ import net.sourceforge.pmd.lang.java.ast.ASTEnumDeclaration;
 import net.sourceforge.pmd.lang.java.ast.ASTInitializer;
 import net.sourceforge.pmd.lang.java.ast.ASTMethodDeclaration;
 import net.sourceforge.pmd.lang.java.ast.AccessNode;
+import net.sourceforge.pmd.lang.java.ast.internal.PrettyPrintingUtil;
 import net.sourceforge.pmd.properties.PropertyDescriptor;
 
 
@@ -29,7 +30,7 @@ public class ClassNamingConventionsRule extends AbstractNamingConventionRule<AST
     private final PropertyDescriptor<Pattern> interfaceRegex = defaultProp("interface").build();
     private final PropertyDescriptor<Pattern> enumerationRegex = defaultProp("enum").build();
     private final PropertyDescriptor<Pattern> annotationRegex = defaultProp("annotation").build();
-    private final PropertyDescriptor<Pattern> utilityClassRegex = defaultProp("utility class").defaultValue("[A-Z][a-zA-Z0-9]+(Utils?|Helper)").build();
+    private final PropertyDescriptor<Pattern> utilityClassRegex = defaultProp("utility class").defaultValue("[A-Z][a-zA-Z0-9]+(Utils?|Helper|Constants)").build();
 
 
     public ClassNamingConventionsRule() {
@@ -73,7 +74,7 @@ public class ClassNamingConventionsRule extends AbstractNamingConventionRule<AST
                     return false;
                 }
                 break;
-                
+
             case INITIALIZER:
                 if (!((ASTInitializer) decl.getDeclarationNode()).isStatic()) {
                     return false;
@@ -101,9 +102,9 @@ public class ClassNamingConventionsRule extends AbstractNamingConventionRule<AST
         ASTMethodDeclaration decl = (ASTMethodDeclaration) bodyDeclaration.getDeclarationNode();
 
         return decl.isStatic()
-                && "main".equals(decl.getMethodName())
+                && "main".equals(decl.getName())
                 && decl.getResultType().isVoid()
-                && decl.getFormalParameters().getParameterCount() == 1
+                && decl.getFormalParameters().size() == 1
                 && String[].class.equals(decl.getFormalParameters().iterator().next().getType());
     }
 
@@ -147,6 +148,6 @@ public class ClassNamingConventionsRule extends AbstractNamingConventionRule<AST
 
     @Override
     String kindDisplayName(ASTAnyTypeDeclaration node, PropertyDescriptor<Pattern> descriptor) {
-        return isUtilityClass(node) ? "utility class" : node.getTypeKind().getPrintableName();
+        return isUtilityClass(node) ? "utility class" : PrettyPrintingUtil.kindName(node);
     }
 }

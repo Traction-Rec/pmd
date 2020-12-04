@@ -11,7 +11,9 @@ import java.lang.reflect.Method;
 /**
  * ClassLoader utilities. Useful for extracting additional details from a class
  * hierarchy beyond the basic standard Java Reflection APIs.
+ * @deprecated See {@link DCD}
  */
+@Deprecated
 public final class ClassLoaderUtil {
 
     public static final String CLINIT = "<clinit>";
@@ -145,7 +147,12 @@ public final class ClassLoaderUtil {
         return parameterTypes;
     }
 
+    @Deprecated
     public static boolean isOverridenMethod(Class<?> clazz, Method method, boolean checkThisClass) {
+        return isOverriddenMethod(clazz, method, checkThisClass);
+    }
+
+    public static boolean isOverriddenMethod(Class<?> clazz, Method method, boolean checkThisClass) {
         try {
             if (checkThisClass) {
                 clazz.getDeclaredMethod(method.getName(), method.getParameterTypes());
@@ -156,13 +163,13 @@ public final class ClassLoaderUtil {
         }
         // Check super class
         if (clazz.getSuperclass() != null) {
-            if (isOverridenMethod(clazz.getSuperclass(), method, true)) {
+            if (isOverriddenMethod(clazz.getSuperclass(), method, true)) {
                 return true;
             }
         }
         // Check interfaces
         for (Class<?> anInterface : clazz.getInterfaces()) {
-            if (isOverridenMethod(anInterface, method, true)) {
+            if (isOverriddenMethod(anInterface, method, true)) {
                 return true;
             }
         }

@@ -23,7 +23,7 @@ import org.yaml.snakeyaml.DumperOptions.LineBreak;
 import org.yaml.snakeyaml.Yaml;
 
 import net.sourceforge.pmd.RuleSet;
-import net.sourceforge.pmd.RuleSetFactory;
+import net.sourceforge.pmd.RulesetsFactoryUtils;
 import net.sourceforge.pmd.lang.Language;
 import net.sourceforge.pmd.lang.LanguageRegistry;
 
@@ -38,8 +38,8 @@ public class SidebarGeneratorTest {
     @Test
     public void testSidebar() throws IOException {
         Map<Language, List<RuleSet>> rulesets = new HashMap<>();
-        RuleSet ruleSet1 = new RuleSetFactory().createNewRuleSet("test", "test", "bestpractices.xml", Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
-        RuleSet ruleSet2 = new RuleSetFactory().createNewRuleSet("test2", "test", "codestyle.xml", Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
+        RuleSet ruleSet1 = RulesetsFactoryUtils.defaultFactory().createNewRuleSet("test", "test", "bestpractices.xml", Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
+        RuleSet ruleSet2 = RulesetsFactoryUtils.defaultFactory().createNewRuleSet("test2", "test", "codestyle.xml", Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
         rulesets.put(LanguageRegistry.findLanguageByTerseName("java"), Arrays.asList(ruleSet1, ruleSet2));
         rulesets.put(LanguageRegistry.findLanguageByTerseName("ecmascript"), Arrays.asList(ruleSet1));
 
@@ -53,6 +53,8 @@ public class SidebarGeneratorTest {
         }
         String yaml = new Yaml(options).dump(result);
 
-        assertEquals("test", "test");
+        String expected = MockedFileWriter.normalizeLineSeparators(
+                IOUtils.toString(SidebarGeneratorTest.class.getResourceAsStream("sidebar.yml"), StandardCharsets.UTF_8));
+        assertEquals(expected, yaml);
     }
 }
