@@ -1,4 +1,12 @@
+/**
+ * BSD-style license; for more info see http://pmd.sourceforge.net/license.html
+ */
+
 package net.sourceforge.pmd.lang.apex.rule.security;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 
 import net.sourceforge.pmd.lang.apex.ast.ASTMethodCallExpression;
 import net.sourceforge.pmd.lang.apex.ast.ASTUserClass;
@@ -6,10 +14,6 @@ import net.sourceforge.pmd.lang.apex.ast.AbstractApexNode;
 import net.sourceforge.pmd.lang.apex.rule.AbstractApexRule;
 import net.sourceforge.pmd.properties.PropertyDescriptor;
 import net.sourceforge.pmd.properties.PropertyFactory;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 public class ApexRecRestrictDatabaseUsageRule extends AbstractApexRule {
 
@@ -32,16 +36,16 @@ public class ApexRecRestrictDatabaseUsageRule extends AbstractApexRule {
     @Override
     public Object visit(ASTUserClass node, Object data) {
         // Not interested in tests
-        final String className = Helper.getClassName(node);
+        final String className = RecHelper.getClassName(node);
         final List<String> allowedClasses =
                 Arrays.asList(getProperty(CLASSES_ALLOWED_DATABASE_ACCESS_CSV_PROPERTY).split("\\s*,\\s*"));
-        if (Helper.isTestMethodOrClass(node) || allowedClasses.contains(className)) {
+        if (RecHelper.isTestMethodOrClass(node) || allowedClasses.contains(className)) {
             return data;
         }
 
         // if class calls the database add an error
-        List<AbstractApexNode<?>> databaseAccessNodes = Helper.getAllDatabaseAccessNodesNotInSubclasses(node);
-        List<String> allowedMethodNames = Helper.convertListStringToLowerCase(
+        List<AbstractApexNode<?>> databaseAccessNodes = RecHelper.getAllDatabaseAccessNodesNotInSubclasses(node);
+        List<String> allowedMethodNames = RecHelper.convertListStringToLowerCase(
                 Arrays.asList(getProperty(UNRESTRICTED_DATABASE_METHODS_CSV_PROPERTY).split("\\s*,\\s*"))
         );
         if (!databaseAccessNodes.isEmpty()) {
@@ -49,7 +53,7 @@ public class ApexRecRestrictDatabaseUsageRule extends AbstractApexRule {
                 // If calling Database.x (i.e. not inline SOQL or SOSL) check if call is allowed
                 if (call instanceof ASTMethodCallExpression) {
                     ASTMethodCallExpression methodNode = (ASTMethodCallExpression) call;
-                    if (!allowedMethodNames.contains(methodNode.getMethodName().toLowerCase())) {
+                    if (!allowedMethodNames.contains(methodNode.getMethodName().toLowerCase(Locale.ROOT))) {
                         addViolation(data, call);
                     }
                 } else {

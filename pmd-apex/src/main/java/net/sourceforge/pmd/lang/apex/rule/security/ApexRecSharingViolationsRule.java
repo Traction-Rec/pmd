@@ -1,13 +1,18 @@
+/**
+ * BSD-style license; for more info see http://pmd.sourceforge.net/license.html
+ */
+
 package net.sourceforge.pmd.lang.apex.rule.security;
 
-import apex.jorje.semantic.ast.modifier.OldModifiers;
-import apex.jorje.semantic.symbol.type.ModifierOrAnnotationTypeInfo;
+import java.util.WeakHashMap;
+
 import net.sourceforge.pmd.lang.apex.ast.ASTModifierNode;
 import net.sourceforge.pmd.lang.apex.ast.ASTUserClass;
 import net.sourceforge.pmd.lang.apex.ast.ApexNode;
 import net.sourceforge.pmd.lang.apex.rule.AbstractApexRule;
 
-import java.util.WeakHashMap;
+import apex.jorje.semantic.ast.modifier.OldModifiers;
+import apex.jorje.semantic.symbol.type.ModifierOrAnnotationTypeInfo;
 
 public class ApexRecSharingViolationsRule extends AbstractApexRule {
 
@@ -15,7 +20,7 @@ public class ApexRecSharingViolationsRule extends AbstractApexRule {
 
     @Override
     public Object visit(ASTUserClass node, Object data) {
-        if (Helper.isTestMethodOrClass(node)) {
+        if (RecHelper.isTestMethodOrClass(node)) {
             return data; // stops all the rules
         }
 
