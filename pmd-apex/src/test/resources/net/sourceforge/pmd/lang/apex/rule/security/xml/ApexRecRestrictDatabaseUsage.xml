@@ -12,31 +12,31 @@
         <expected-problems>0</expected-problems>
         <code><![CDATA[
 public virtual with sharing class UnitOfWork implements fflib_ISObjectUnitOfWork {
-public inherited sharing class WithoutFlsDml implements IDML {
-		public List<Database.SaveResult> dmlInsert(List<SObject> objList, Boolean allOrNone) {
-			if (!objList.isEmpty()) {
-				return Database.insert(objList, allOrNone);
-			} else {
-				return new List<Database.SaveResult>();
-			}
-		}
-		public List<Database.SaveResult> dmlUpdate(List<SObject> objList, Set<SObjectField> fields, Boolean allOrNone) {
-			if (!objList.isEmpty()) {
-				return Database.update(objList, allOrNone);
-			} else {
-				return new List<Database.SaveResult>();
-			}
-		}
-		public List<Database.DeleteResult> dmlDelete(List<SObject> objList, Boolean allOrNone) {
-			if (!objList.isEmpty()) {
-				return Database.delete(objList, allOrNone);
-			} else {
-				return new List<Database.DeleteResult>();
-			}
-		}
-	}
+  public inherited sharing class WithoutFlsDml implements IDML {
+    public List<Database.SaveResult> dmlInsert(List<SObject> objList, Boolean allOrNone) {
+      if (!objList.isEmpty()) {
+        return Database.insert(objList, allOrNone);
+      } else {
+        return new List<Database.SaveResult>();
+      }
+    }
+    public List<Database.SaveResult> dmlUpdate(List<SObject> objList, Set<SObjectField> fields, Boolean allOrNone) {
+      if (!objList.isEmpty()) {
+        return Database.update(objList, allOrNone);
+      } else {
+        return new List<Database.SaveResult>();
+      }
+    }
+    public List<Database.DeleteResult> dmlDelete(List<SObject> objList, Boolean allOrNone) {
+      if (!objList.isEmpty()) {
+        return Database.delete(objList, allOrNone);
+      } else {
+        return new List<Database.DeleteResult>();
+      }
+    }
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
     <test-code>
         <description>Test Apex class using 2 restricted methods </description>
@@ -44,12 +44,12 @@ public inherited sharing class WithoutFlsDml implements IDML {
         <code><![CDATA[
 @IsTest
 public class BarTest {
-	public void test1() {
-		Database.insert(new Account());
-		Database.setSavePoint();
-    }
+  public void test1() {
+    Database.insert(new Account());
+    Database.setSavePoint();
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
     <test-code>
         <description>Inner test Apex class using 2 restricted methods </description>
@@ -64,7 +64,7 @@ public class BarTest {
         }
     }
 }
-		]]></code>
+    ]]></code>
     </test-code>
     <test-code>
         <description>Apex class using 2 restricted methods but excluded</description>
@@ -72,12 +72,12 @@ public class BarTest {
         <expected-problems>0</expected-problems>
         <code><![CDATA[
 public class Bar {
-	public void test1() {
-		Database.insert(new Account());
-		Database.setSavePoint();
-    }
+  public void test1() {
+    Database.insert(new Account());
+    Database.setSavePoint();
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
     <test-code>
         <description>Apex class using 1 restricted method but class is excluded</description>
@@ -85,43 +85,23 @@ public class Bar {
         <expected-problems>0</expected-problems>
         <code><![CDATA[
 public class Foo {
-	public void test1() {
-		insert new Account();
-    }
+  public void test1() {
+    insert new Account();
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
-    <test-code>
-        <description>Apex class using 1 restricted method but class is excluded</description>
-        <rule-property name="classesAllowedDatabaseAccessCsv">Foo,Bar</rule-property>
-        <expected-problems>0</expected-problems>
-        <code><![CDATA[
-public class Foo {
-	public void test1() {
-		insert new Account();
-		Database.insert(new Account());
-    }
-}
-public class Bar {
-	public void test1() {
-		insert new Account();
-		Database.insert(new Account());
-    }
-}
-		]]></code>
-    </test-code>
-
     <test-code>
         <description>Apex class using restricted methods but method is excluded</description>
         <rule-property name="unrestrictedDatabaseMethodsCsv">insert</rule-property>
         <expected-problems>0</expected-problems>
         <code><![CDATA[
 public class Bar {
-	public void test1() {
-		Database.insert(new Account());
-    }
+  public void test1() {
+    Database.insert(new Account());
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
 
     <test-code>
@@ -129,11 +109,11 @@ public class Bar {
         <expected-problems>0</expected-problems>
         <code><![CDATA[
 public class Foo {
-	public void test1() {
-		Bar.callmethod();
-	}
+  public void test1() {
+    Bar.callmethod();
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
 
      <!--keyword DML-->
@@ -143,11 +123,11 @@ public class Foo {
         <expected-problems>1</expected-problems>
         <code><![CDATA[
 public class Bar {
-	public void test1() {
-		insert new Account();
-    }
+  public void test1() {
+    insert new Account();
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
 
     <test-code>
@@ -155,11 +135,11 @@ public class Bar {
         <expected-problems>1</expected-problems>
         <code><![CDATA[
 public class Foo {
-	public void test1() {
-		upsert accounts;
-	}
+  public void test1() {
+    upsert accounts;
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
 
     <test-code>
@@ -167,11 +147,11 @@ public class Foo {
         <expected-problems>1</expected-problems>
         <code><![CDATA[
 public class Foo {
-	public void test1() {
-		insert accounts;
-	}
+  public void test1() {
+    insert accounts;
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
 
     <test-code>
@@ -179,11 +159,11 @@ public class Foo {
         <expected-problems>1</expected-problems>
         <code><![CDATA[
 public class Foo {
-	public void test1() {
-		delete accounts;
-	}
+  public void test1() {
+    delete accounts;
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
 
     <test-code>
@@ -191,11 +171,11 @@ public class Foo {
         <expected-problems>1</expected-problems>
         <code><![CDATA[
 public class Foo {
-	public void test1() {
-		update accounts;
-	}
+  public void test1() {
+    update accounts;
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
 
     <!-- DML via database -->
@@ -205,22 +185,22 @@ public class Foo {
         <expected-problems>1</expected-problems>
         <code><![CDATA[
 public class Bar {
-	public void test1() {
-		Database.insert(new Account());
-    }
+  public void test1() {
+    Database.insert(new Account());
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
     <test-code>
         <description>Apex class directly upserting accounts</description>
         <expected-problems>1</expected-problems>
         <code><![CDATA[
 public class Foo {
-	public void test1() {
-		Database.upsert(accounts);
-	}
+  public void test1() {
+    Database.upsert(accounts);
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
 
     <test-code>
@@ -228,11 +208,11 @@ public class Foo {
         <expected-problems>1</expected-problems>
         <code><![CDATA[
 public class Foo {
-	public void test1() {
-		Database.insert(accounts);
-	}
+  public void test1() {
+    Database.insert(accounts);
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
 
     <test-code>
@@ -240,11 +220,11 @@ public class Foo {
         <expected-problems>1</expected-problems>
         <code><![CDATA[
 public class Foo {
-	public void test1() {
-		Database.delete(accounts);
-	}
+  public void test1() {
+    Database.delete(accounts);
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
 
     <test-code>
@@ -252,11 +232,11 @@ public class Foo {
         <expected-problems>1</expected-problems>
         <code><![CDATA[
 public class Foo {
-	public void test1() {
-		Database.update(accounts);
-	}
+  public void test1() {
+    Database.update(accounts);
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
 
     <!-- Queries -->
@@ -266,12 +246,12 @@ public class Foo {
         <expected-problems>1</expected-problems>
         <code><![CDATA[
 public with sharing class Foo {
-	public List<SObject> test1() {
-	    String q = 'Select Id from Account LIMIT 100';
-		return Database.query(q);
-	}
+  public List<SObject> test1() {
+      String q = 'Select Id from Account LIMIT 100';
+    return Database.query(q);
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
 
     <test-code>
@@ -279,10 +259,10 @@ public with sharing class Foo {
         <expected-problems>1</expected-problems>
         <code><![CDATA[
 public without sharing class Foo {
-	public void test1() {
-		List<Account> accounts = [SELECT Id FROM Account LIMIT 1];
-	}
+  public void test1() {
+    List<Account> accounts = [SELECT Id FROM Account LIMIT 1];
+  }
 }
-		]]></code>
+    ]]></code>
     </test-code>
 </test-data>

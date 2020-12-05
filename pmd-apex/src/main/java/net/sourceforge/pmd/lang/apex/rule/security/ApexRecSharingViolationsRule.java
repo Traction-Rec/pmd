@@ -65,7 +65,7 @@ public class ApexRecSharingViolationsRule extends AbstractApexRule {
                 sharingFound = true;
                 break;
             }
-            if (type.getBytecodeName().equalsIgnoreCase("InheritedSharing")) {
+            if ("InheritedSharing".equalsIgnoreCase(type.getBytecodeName())) {
                 sharingFound = true;
                 break;
             }
