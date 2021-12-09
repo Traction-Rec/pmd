@@ -78,6 +78,7 @@ import net.sourceforge.pmd.lang.java.ast.ASTYieldStatement;
 import net.sourceforge.pmd.lang.java.ast.JavaNode;
 import net.sourceforge.pmd.lang.java.ast.JavaParserVisitorAdapter;
 import net.sourceforge.pmd.lang.java.rule.AbstractJavaRule;
+import net.sourceforge.pmd.lang.java.rule.internal.JavaRuleUtil;
 import net.sourceforge.pmd.lang.java.symboltable.ClassScope;
 import net.sourceforge.pmd.lang.java.symboltable.VariableNameDeclaration;
 import net.sourceforge.pmd.lang.symboltable.Scope;
@@ -206,7 +207,7 @@ public class UnusedAssignmentRule extends AbstractJavaRule {
                 } else {
                     reason = joinLines("overwritten on lines ", killers);
                 }
-                if (reason == null && hasExplicitIgnorableName(entry.var.getName())) {
+                if (reason == null && JavaRuleUtil.isExplicitUnusedVarName(entry.var.getName())) {
                     // Then the variable is never used (cf UnusedVariable)
                     // We ignore those that start with "ignored", as that is standard
                     // practice for exceptions, and may be useful for resources/foreach vars
@@ -215,11 +216,6 @@ public class UnusedAssignmentRule extends AbstractJavaRule {
                 addViolationWithMessage(ruleCtx, entry.rhs, makeMessage(entry, reason, entry.var.isField()));
             }
         }
-    }
-
-    private boolean hasExplicitIgnorableName(String name) {
-        return name.startsWith("ignored")
-            || "_".equals(name); // before java 9 it's ok
     }
 
     private boolean suppressUnusedVariableRuleOverlap(AssignmentEntry entry) {
@@ -801,10 +797,21 @@ public class UnusedAssignmentRule extends AbstractJavaRule {
             if (rhs != null) {
                 rhs.jjtAccept(this, data);
                 ((SpanInfo) data).assign(var, rhs);
-            } else {
+            } else if (isAssignedImplicitly(var)) {
                 ((SpanInfo) data).assign(var, node.getVariableId());
             }
             return data;
+        }
+
+        /**
+         * Whether the variable has an implicit initializer, that is not
+         * an expression. For instance, formal parameters have a value
+         * within the method, same for exception parameters, foreach variables,
+         * fields (default value), etc. Only blank local variables have
+         * no initial value.
+         */
+        private boolean isAssignedImplicitly(ASTVariableDeclaratorId var) {
+            return !var.isLocalVariable() || var.isForeachVariable();
         }
 
 
@@ -863,6 +870,7 @@ public class UnusedAssignmentRule extends AbstractJavaRule {
         }
 
         private SpanInfo checkIncOrDecrement(JavaNode unary, SpanInfo data) {
+            super.visit(unary, data);
             ASTVariableDeclaratorId var = getVarFromExpression(unary.getChild(0), true, data);
             if (var != null) {
                 data.use(var);
@@ -1103,7 +1111,7 @@ public class UnusedAssignmentRule extends AbstractJavaRule {
         static void useAllSelfFields(/*nullable*/SpanInfo staticState, SpanInfo instanceState, ClassScope classScope) {
             for (VariableNameDeclaration field : classScope.getVariableDeclarations().keySet()) {
                 ASTVariableDeclaratorId var = field.getDeclaratorId();
-                if (field.getAccessNodeParent().isStatic()) {
+                if (!field.isRecordComponent() && field.getAccessNodeParent().isStatic()) {
                     if (staticState != null) {
                         staticState.use(var);
                     }
@@ -1157,7 +1165,7 @@ public class UnusedAssignmentRule extends AbstractJavaRule {
         }
 
         VarLocalInfo absorb(VarLocalInfo other) {
-            if (other == this) {
+            if (this.equals(other)) {
                 return this;
             }
             Set<AssignmentEntry> merged = new HashSet<>(reachingDefs.size() + other.reachingDefs.size());
@@ -1386,7 +1394,7 @@ public class UnusedAssignmentRule extends AbstractJavaRule {
 
             // a spanInfo may be absorbed several times so this method should not
             // destroy the parameter
-            if (other == this || other == null || other.symtable.isEmpty()) {
+            if (this.equals(other) || other == null || other.symtable.isEmpty()) {
                 return this;
             }
 

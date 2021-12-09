@@ -10,10 +10,14 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
+import net.sourceforge.pmd.annotation.InternalApi;
 import net.sourceforge.pmd.benchmark.TimeTracker;
 import net.sourceforge.pmd.benchmark.TimedOperation;
 import net.sourceforge.pmd.benchmark.TimedOperationCategory;
+import net.sourceforge.pmd.lang.AbstractParser;
 import net.sourceforge.pmd.lang.Language;
 import net.sourceforge.pmd.lang.LanguageVersion;
 import net.sourceforge.pmd.lang.LanguageVersionHandler;
@@ -23,7 +27,14 @@ import net.sourceforge.pmd.lang.ast.Node;
 import net.sourceforge.pmd.lang.ast.ParseException;
 import net.sourceforge.pmd.lang.xpath.Initializer;
 
+/**
+ * Source code processor is internal.
+ */
+@Deprecated
+@InternalApi
 public class SourceCodeProcessor {
+
+    private static final Logger LOG = Logger.getLogger(SourceCodeProcessor.class.getName());
 
     private final PMDConfiguration configuration;
 
@@ -107,7 +118,11 @@ public class SourceCodeProcessor {
             processSource(sourceCode, ruleSets, ctx);
         } catch (ParseException pe) {
             configuration.getAnalysisCache().analysisFailed(ctx.getSourceCodeFile());
-            throw new PMDException("Error while parsing " + ctx.getSourceCodeFile(), pe);
+            if (configuration.isForceLanguageVersion()) {
+                LOG.log(Level.FINE, "Error while parsing " + ctx.getSourceCodeFile(), pe);
+            } else {
+                throw new PMDException("Error while parsing " + ctx.getSourceCodeFile(), pe);
+            }
         } catch (Exception e) {
             configuration.getAnalysisCache().analysisFailed(ctx.getSourceCodeFile());
             throw new PMDException("Error while processing " + ctx.getSourceCodeFile(), e);
@@ -118,7 +133,7 @@ public class SourceCodeProcessor {
 
     private Node parse(RuleContext ctx, Reader sourceCode, Parser parser) {
         try (TimedOperation to = TimeTracker.startOperation(TimedOperationCategory.PARSER)) {
-            Node rootNode = parser.parse(String.valueOf(ctx.getSourceCodeFile()), sourceCode);
+            Node rootNode = AbstractParser.doParse(parser, String.valueOf(ctx.getSourceCodeFile()), sourceCode);
             ctx.getReport().suppress(parser.getSuppressMap());
             return rootNode;
         }
@@ -195,9 +210,18 @@ public class SourceCodeProcessor {
     }
 
     private void determineLanguage(RuleContext ctx) {
-        // If LanguageVersion of the source file is not known, make a
-        // determination
-        if (ctx.getLanguageVersion() == null) {
+        if (ctx.getLanguageVersion() != null) {
+            // we already have a language
+            return;
+        }
+
+        // If LanguageVersion of the source file is not known, make a determination
+        LanguageVersion forceLanguage = configuration.getForceLanguageVersion();
+        if (forceLanguage != null) {
+            // use force language if given
+            ctx.setLanguageVersion(forceLanguage);
+        } else {
+            // otherwise determine by file extension
             LanguageVersion languageVersion = configuration.getLanguageVersionOfFile(ctx.getSourceCodeFilename());
             ctx.setLanguageVersion(languageVersion);
         }

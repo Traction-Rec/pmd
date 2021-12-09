@@ -175,6 +175,27 @@ public class InvalidSl4jExceptionBug1541 {
 }
         ]]></code>
     </test-code>
+    <test-code>
+        <description>#3560 [java] InvalidLogMessageFormat: False positive with message and exception in a block inside a lambda</description>
+        <expected-problems>0</expected-problems>
+        <code><![CDATA[
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.util.function.Consumer;
+
+public class InvalidSl4jExceptionBug3560 {
+    private static final Logger LOGGER = LoggerFactory.getLogger(InvalidSl4jExceptionBug3560.class);
+
+    public static Consumer<Throwable> build() {
+        return e -> {
+            if (e instanceof RuntimeException) {
+                LOGGER.warn("Unexpected RuntimeException", e);
+            }
+        };
+    }
+}
+        ]]></code>
+    </test-code>
 
     <test-code>
         <description>#1551 [java] InvalidSlf4jMessageFormat: fails with NPE</description>
@@ -868,7 +889,7 @@ class InvalidLogMessageFormatTest {
 }
         ]]></code>
     </test-code>
-    
+
     <test-code>
         <description>#2431 IndexOutOfBoundsException when only logging exception message</description>
         <expected-problems>0</expected-problems>
@@ -882,6 +903,140 @@ public class Foo {
             new File("/text.txt");
         } catch (Exception e) {
             LOG.warn(e.getMessage());
+        }
+    }
+}
+        ]]></code>
+    </test-code>
+
+    <test-code>
+        <description>[java] InvalidLogMessageFormat FP with StringFormattedMessage and ParameterizedMessage #3133</description>
+        <expected-problems>2</expected-problems>
+        <expected-linenumbers>10,14</expected-linenumbers>
+        <expected-messages>
+            <message>Missing arguments, expected 2 arguments but have 1</message>
+            <message>Too many arguments, expected 1 argument but have 2</message>
+        </expected-messages>
+        <code><![CDATA[
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class TestInvalidLogMessageFormat {
+    Logger log = LoggerFactory.getLogger(TestInvalidLogMessageFormat.class);
+
+    public void testPMD() {
+        /* whistled, fp*/ log.debug("param %10s %% %n %%", "1"); // string formatted message
+
+        /*10:violation*/ log.debug("param %.2d%s", "expected 2 params, given 1");
+        try {
+            throw new Exception();
+        } catch (Exception e) {
+            /*14:violation*/ log.debug("param %s", "expected 1 params, given 2", "too many params", e);
+        }
+    }
+
+    protected void logProblem(String type, Object val) {
+        if (log.isDebugEnabled() && val instanceof Throwable) {
+            /*whistled, fp*/ log.debug("Trace for "+type+" reading "+getBriefDescription()+": "+val, (Throwable)val);
+        }
+
+        if (log.isDebugEnabled()) {
+            /*whistled, fp*/ log.debug("Recurring {} reading {} in {} (still in grace period): {}", new Object[] {type, this, getBriefDescription(), val});
+        }
+    }
+
+    private String getBriefDescription() { return ""; }
+}
+        ]]></code>
+    </test-code>
+
+    <test-code>
+        <description>[java] InvalidLogMessageFormat detection failing when String.format used #3146</description>
+        <expected-problems>0</expected-problems>
+        <code><![CDATA[
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import static java.lang.String.format;
+
+class TestInvalidLogMessageFormat {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TestInvalidLogMessageFormat.class);
+    public void testPMD() {
+        LOGGER.info(String.format("Skipping file %s because no parser could be found", getName()));
+        LOGGER.info(format("Skipping file %s", getName()));
+    }
+
+    private String getName() { return "the-name"; }
+}
+        ]]></code>
+    </test-code>
+
+    <test-code>
+        <description>[java] InvalidLogMessageFormat detection failing when String.format used in a variable</description>
+        <expected-problems>0</expected-problems>
+        <code><![CDATA[
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import static java.lang.String.format;
+
+class TestInvalidLogMessageFormat {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TestInvalidLogMessageFormat.class);
+    public void testPMD() {
+        String message = String.format("Skipping file %s because no parser could be found", getName());
+        LOGGER.info(message);
+    }
+
+    private String getName() { return "the-name"; }
+}
+        ]]></code>
+    </test-code>
+    <test-code>
+        <description>#2642 [java] InvalidLogMessageFormat throws IndexOutOfBoundsException with SLF4J and a StringBuilder variable set using var</description>
+        <expected-problems>0</expected-problems>
+        <code><![CDATA[
+            import org.slf4j.Logger;
+            import org.slf4j.LoggerFactory;
+
+            public class Foo {
+
+                private static final Logger LOGGER = LoggerFactory.getLogger(Foo.class);
+
+                public void okStr() {
+                    String message = "Test"; // No exception
+                    LOGGER.info(message.toString());
+                }
+                public void okStrVar() {
+                    var message = "Test"; // No exception
+                    LOGGER.info(message.toString());
+                }
+                public void okSb() {
+                    StringBuilder message = new StringBuilder("Test"); // No exception
+                    LOGGER.info(message.toString());
+                }
+                public void exceptionOnThisOne() {
+                    var message = new StringBuilder("Test"); // Throws IndexOutOfBoundsException
+                    LOGGER.info(message.toString());
+                }
+            }
+            ]]></code>
+    </test-code>
+
+    <test-code>
+        <description>[java] InvalidLogMessageFormat may examine the value of a different but identically named String variable #3284</description>
+        <expected-problems>0</expected-problems>
+        <code><![CDATA[
+import org.slf4j.Logger;
+public class Foo {
+    public void aTest() {
+        Logger logger = null;
+
+        if (true) {
+            final String logMessage = "A message formatted with three parameters: {}, {}, {}";
+        }
+
+        if (true) {
+            final String logMessage = "A message formatted with only one parameter: {}";
+            final Object param = null;
+            logger.trace(logMessage, param);
         }
     }
 }

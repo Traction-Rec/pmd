@@ -74,16 +74,16 @@ public class SingularFieldRule extends AbstractLombokAwareRule {
         boolean disallowNotAssignment = getProperty(DISALLOW_NOT_ASSIGNMENT);
 
         if (!node.isPrivate() || node.isStatic()) {
-            return data;
+            return super.visit(node, data);
         }
 
         if (hasClassLombokAnnotation() || hasIgnoredAnnotation(node)) {
-            return data;
+            return super.visit(node, data);
         }
 
         // lombok.EqualsAndHashCode is a class-level annotation
         if (hasIgnoredAnnotation((Annotatable) node.getFirstParentOfType(ASTAnyTypeDeclaration.class))) {
-            return data;
+            return super.visit(node, data);
         }
 
         for (ASTVariableDeclarator declarator : node.findChildrenOfType(ASTVariableDeclarator.class)) {
@@ -95,8 +95,15 @@ public class SingularFieldRule extends AbstractLombokAwareRule {
                 NameOccurrence no = usages.get(ix);
                 Node location = no.getLocation();
 
-                ASTPrimaryExpression primaryExpressionParent = location
-                        .getFirstParentOfType(ASTPrimaryExpression.class);
+                ASTPrimaryExpression primaryExpressionParent = location.getFirstParentOfType(ASTPrimaryExpression.class);
+
+                if (primaryExpressionParent == null) {
+                    // concise resource `try(field) {...}`, in pmd 7
+                    // there will be an expression there
+                    violation = false;
+                    break;
+                }
+
                 if (ix == 0 && !disallowNotAssignment) {
                     if (primaryExpressionParent.getFirstParentOfType(ASTIfStatement.class) != null) {
                         // the first usage is in an if, so it may be skipped
@@ -187,7 +194,7 @@ public class SingularFieldRule extends AbstractLombokAwareRule {
                 addViolation(data, node, new Object[] { declaration.getImage() });
             }
         }
-        return data;
+        return super.visit(node, data);
     }
 
     private boolean isInAssignment(Node potentialStatement) {

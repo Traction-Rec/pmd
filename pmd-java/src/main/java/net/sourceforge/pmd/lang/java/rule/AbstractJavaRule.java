@@ -35,6 +35,7 @@ import net.sourceforge.pmd.lang.java.ast.ASTClassOrInterfaceBody;
 import net.sourceforge.pmd.lang.java.ast.ASTClassOrInterfaceBodyDeclaration;
 import net.sourceforge.pmd.lang.java.ast.ASTClassOrInterfaceDeclaration;
 import net.sourceforge.pmd.lang.java.ast.ASTClassOrInterfaceType;
+import net.sourceforge.pmd.lang.java.ast.ASTCompactConstructorDeclaration;
 import net.sourceforge.pmd.lang.java.ast.ASTCompilationUnit;
 import net.sourceforge.pmd.lang.java.ast.ASTConditionalAndExpression;
 import net.sourceforge.pmd.lang.java.ast.ASTConditionalExpression;
@@ -59,6 +60,7 @@ import net.sourceforge.pmd.lang.java.ast.ASTForStatement;
 import net.sourceforge.pmd.lang.java.ast.ASTForUpdate;
 import net.sourceforge.pmd.lang.java.ast.ASTFormalParameter;
 import net.sourceforge.pmd.lang.java.ast.ASTFormalParameters;
+import net.sourceforge.pmd.lang.java.ast.ASTGuardedPattern;
 import net.sourceforge.pmd.lang.java.ast.ASTIfStatement;
 import net.sourceforge.pmd.lang.java.ast.ASTImplementsList;
 import net.sourceforge.pmd.lang.java.ast.ASTImportDeclaration;
@@ -100,7 +102,6 @@ import net.sourceforge.pmd.lang.java.ast.ASTRUNSIGNEDSHIFT;
 import net.sourceforge.pmd.lang.java.ast.ASTRecordBody;
 import net.sourceforge.pmd.lang.java.ast.ASTRecordComponent;
 import net.sourceforge.pmd.lang.java.ast.ASTRecordComponentList;
-import net.sourceforge.pmd.lang.java.ast.ASTRecordConstructorDeclaration;
 import net.sourceforge.pmd.lang.java.ast.ASTRecordDeclaration;
 import net.sourceforge.pmd.lang.java.ast.ASTReferenceType;
 import net.sourceforge.pmd.lang.java.ast.ASTRelationalExpression;
@@ -130,7 +131,7 @@ import net.sourceforge.pmd.lang.java.ast.ASTTypeBound;
 import net.sourceforge.pmd.lang.java.ast.ASTTypeDeclaration;
 import net.sourceforge.pmd.lang.java.ast.ASTTypeParameter;
 import net.sourceforge.pmd.lang.java.ast.ASTTypeParameters;
-import net.sourceforge.pmd.lang.java.ast.ASTTypeTestPattern;
+import net.sourceforge.pmd.lang.java.ast.ASTTypePattern;
 import net.sourceforge.pmd.lang.java.ast.ASTUnaryExpression;
 import net.sourceforge.pmd.lang.java.ast.ASTUnaryExpressionNotPlusMinus;
 import net.sourceforge.pmd.lang.java.ast.ASTVariableDeclarator;
@@ -211,9 +212,10 @@ public abstract class AbstractJavaRule extends AbstractRule implements JavaParse
 
     //
     // The following APIs are identical to those in JavaParserVisitorAdapter.
-    // Due to Java single inheritance, it preferred to extend from the more
+    // Due to Java single inheritance, it is preferred to extend from the more
     // complex Rule base class instead of from relatively simple Visitor.
     //
+    // CPD-OFF
     @Override
     public Object visit(JavaNode node, Object data) {
         for (JavaNode child : node.children()) {
@@ -838,44 +840,45 @@ public abstract class AbstractJavaRule extends AbstractRule implements JavaParse
     }
 
     @Override
-    @Experimental
-    public Object visit(ASTTypeTestPattern node, Object data) {
+    public Object visit(ASTTypePattern node, Object data) {
         return visit((JavaNode) node, data);
     }
 
     @Override
-    @Experimental
     public Object visit(ASTRecordDeclaration node, Object data) {
         return visit((JavaNode) node, data);
     }
 
     @Override
-    @Experimental
     public Object visit(ASTRecordComponentList node, Object data) {
         return visit((JavaNode) node, data);
     }
 
     @Override
-    @Experimental
     public Object visit(ASTRecordComponent node, Object data) {
         return visit((JavaNode) node, data);
     }
 
     @Override
-    @Experimental
     public Object visit(ASTRecordBody node, Object data) {
         return visit((JavaNode) node, data);
     }
 
     @Override
-    @Experimental
-    public Object visit(ASTRecordConstructorDeclaration node, Object data) {
+    public Object visit(ASTCompactConstructorDeclaration node, Object data) {
         return visit((JavaNode) node, data);
     }
 
     @Override
-    @Experimental
     public Object visit(ASTPermitsList node, Object data) {
         return visit((JavaNode) node, data);
     }
+
+    @Experimental
+    @Override
+    public Object visit(ASTGuardedPattern node, Object data) {
+        return visit((JavaNode) node, data);
+    }
+
+    // CPD-ON
 }

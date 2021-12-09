@@ -103,9 +103,9 @@ import net.sourceforge.pmd.PMDConfiguration;
 import net.sourceforge.pmd.PMDVersion;
 import net.sourceforge.pmd.RuleContext;
 import net.sourceforge.pmd.RuleSet;
-import net.sourceforge.pmd.RuleSetFactory;
 import net.sourceforge.pmd.RuleSets;
 import net.sourceforge.pmd.SourceCodeProcessor;
+import net.sourceforge.pmd.lang.AbstractParser;
 import net.sourceforge.pmd.lang.LanguageRegistry;
 import net.sourceforge.pmd.lang.LanguageVersion;
 import net.sourceforge.pmd.lang.LanguageVersionHandler;
@@ -200,7 +200,8 @@ public class Designer implements ClipboardOwner {
 
     static Node getCompilationUnit(LanguageVersionHandler languageVersionHandler, String code) {
         Parser parser = languageVersionHandler.getParser(languageVersionHandler.getDefaultParserOptions());
-        Node node = parser.parse(null, new StringReader(code));
+        Node node = AbstractParser.doParse(parser, "no file name", new StringReader(code));
+
         languageVersionHandler.getSymbolFacade().start(node);
         languageVersionHandler.getTypeResolutionFacade(Designer.class.getClassLoader()).start(node);
         return node;
@@ -329,7 +330,7 @@ public class Designer implements ClipboardOwner {
         @Override
         public int getIndex(TreeNode node) {
             for (int i = 0; i < kids.length; i++) {
-                if (kids[i] == node) {
+                if (kids[i].equals(node)) {
                     return i;
                 }
             }
@@ -424,7 +425,7 @@ public class Designer implements ClipboardOwner {
         public int getIndex(TreeNode node) {
 
             for (int i = 0; i < kids.length; i++) {
-                if (kids[i] == node) {
+                if (kids[i].equals(node)) {
                     return i;
                 }
             }
@@ -564,7 +565,7 @@ public class Designer implements ClipboardOwner {
             LanguageVersion languageVersion = getLanguageVersion();
             DFAGraphRule dfaGraphRule = languageVersion.getLanguageVersionHandler().getDFAGraphRule();
             if (dfaGraphRule != null) {
-                final RuleSet rs = new RuleSetFactory().createSingleRuleRuleSet(dfaGraphRule);
+                final RuleSet rs = RuleSet.forSingleRule(dfaGraphRule);
                 RuleContext ctx = new RuleContext();
                 ctx.setSourceCodeFile(new File("[no filename]." + languageVersion.getLanguage().getExtensions().get(0)));
                 PMDConfiguration config = new PMDConfiguration();
@@ -610,7 +611,7 @@ public class Designer implements ClipboardOwner {
                 xpathRule.setXPath(xpathQueryArea.getText());
                 xpathRule.setVersion(xpathVersionButtonGroup.getSelection().getActionCommand());
 
-                final RuleSet ruleSet = new RuleSetFactory().createSingleRuleRuleSet(xpathRule);
+                final RuleSet ruleSet = RuleSet.forSingleRule(xpathRule);
 
                 RuleSets ruleSets = new RuleSets(ruleSet);
 

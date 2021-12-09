@@ -36,8 +36,8 @@ public class ParserCornersTest {
     @Test
     public void testInvalidUnicodeEscape() {
         expect.expect(TokenMgrError.class); // previously Error
-        expect.expectMessage("Lexical error in file (no file name provided) at line 1, column 2.  Encountered: Invalid unicode escape");
-        java.parse("\\u00k0");
+        expect.expectMessage("Lexical error in file x/filename.java at line 1, column 2.  Encountered: Invalid unicode escape");
+        java.parse("\\u00k0", null, "x/filename.java");
     }
 
     /**
@@ -186,7 +186,7 @@ public class ParserCornersTest {
     public void testGitHubBug2767() {
         // PMD fails to parse an initializer block.
         // PMD 6.26.0 parses this code just fine.
-        java.withDefaultVersion("15-preview")
+        java.withDefaultVersion("16")
             .parse("class Foo {\n"
                        + "    {final int I;}\n"
                        + "}\n");
@@ -224,6 +224,13 @@ public class ParserCornersTest {
     @Test
     public void testGitHubBug309() {
         java8.parseResource("GitHubBug309.java");
+    }
+
+    @Test(timeout = 30000)
+    public void testInfiniteLoopInLookahead() {
+        expect.expect(ParseException.class);
+        // https://github.com/pmd/pmd/issues/3117
+        java8.parseResource("InfiniteLoopInLookahead.java");
     }
 
     /**
@@ -307,4 +314,9 @@ public class ParserCornersTest {
 
     private static final String CAST_LOOKAHEAD_PROBLEM =
         "public class BadClass {\n  public Class foo() {\n    return (byte[].class);\n  }\n}";
+
+    @Test
+    public void testGithubBug3101UnresolvedTypeParams() {
+        java.parseResource("GitHubBug3101.java");
+    }
 }

@@ -12,49 +12,76 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import org.apache.commons.lang3.StringUtils;
-
+import net.sourceforge.pmd.RuleContext;
 import net.sourceforge.pmd.lang.ast.Node;
 import net.sourceforge.pmd.lang.java.ast.ASTArgumentList;
-import net.sourceforge.pmd.lang.java.ast.ASTClassOrInterfaceBody;
+import net.sourceforge.pmd.lang.java.ast.ASTArrayInitializer;
 import net.sourceforge.pmd.lang.java.ast.ASTClassOrInterfaceType;
-import net.sourceforge.pmd.lang.java.ast.ASTEnumBody;
 import net.sourceforge.pmd.lang.java.ast.ASTExpression;
-import net.sourceforge.pmd.lang.java.ast.ASTFieldDeclaration;
-import net.sourceforge.pmd.lang.java.ast.ASTInitializer;
+import net.sourceforge.pmd.lang.java.ast.ASTImportDeclaration;
 import net.sourceforge.pmd.lang.java.ast.ASTLambdaExpression;
 import net.sourceforge.pmd.lang.java.ast.ASTLiteral;
-import net.sourceforge.pmd.lang.java.ast.ASTMethodOrConstructorDeclaration;
 import net.sourceforge.pmd.lang.java.ast.ASTName;
 import net.sourceforge.pmd.lang.java.ast.ASTPrimaryExpression;
 import net.sourceforge.pmd.lang.java.ast.ASTPrimaryPrefix;
 import net.sourceforge.pmd.lang.java.ast.ASTPrimarySuffix;
 import net.sourceforge.pmd.lang.java.ast.ASTVariableDeclarator;
-import net.sourceforge.pmd.lang.java.ast.ASTVariableDeclaratorId;
 import net.sourceforge.pmd.lang.java.ast.ASTVariableInitializer;
-import net.sourceforge.pmd.lang.java.ast.JavaNode;
+import net.sourceforge.pmd.lang.java.ast.TypeNode;
 import net.sourceforge.pmd.lang.java.rule.AbstractJavaRule;
 import net.sourceforge.pmd.lang.java.symboltable.VariableNameDeclaration;
 import net.sourceforge.pmd.lang.java.types.TypeTestUtil;
 import net.sourceforge.pmd.lang.symboltable.NameDeclaration;
+import net.sourceforge.pmd.lang.symboltable.Scope;
 
 public class InvalidLogMessageFormatRule extends AbstractJavaRule {
+
+    /**
+     * Finds placeholder for ParameterizedMessages and format specifiers
+     * for StringFormattedMessages.
+     */
+    private static final Pattern PLACEHOLDER_AND_FORMAT_SPECIFIER = 
+            Pattern.compile("(\\{\\})|(%(?:\\d\\$)?(?:\\w+)?(?:\\d+)?(?:\\.\\d+)?\\w)");
+
     private static final Map<String, Set<String>> LOGGERS;
 
     static {
         Map<String, Set<String>> loggersMap = new HashMap<>();
 
         loggersMap.put("org.slf4j.Logger", Collections
-                .unmodifiableSet(new HashSet<String>(Arrays.asList("trace", "debug", "info", "warn", "error"))));
+                .unmodifiableSet(new HashSet<>(Arrays.asList("trace", "debug", "info", "warn", "error"))));
         loggersMap.put("org.apache.logging.log4j.Logger", Collections
-                .unmodifiableSet(new HashSet<String>(Arrays.asList("trace", "debug", "info", "warn", "error", "fatal", "all"))));
+                .unmodifiableSet(new HashSet<>(Arrays.asList("trace", "debug", "info", "warn", "error", "fatal", "all"))));
 
         LOGGERS = loggersMap;
     }
 
+    private boolean formatIsStringFormat;
+
     public InvalidLogMessageFormatRule() {
+        addRuleChainVisit(ASTImportDeclaration.class);
         addRuleChainVisit(ASTName.class);
+    }
+
+    @Override
+    public void start(RuleContext ctx) {
+        formatIsStringFormat = false;
+    }
+
+    @Override
+    public Object visit(ASTImportDeclaration node, Object data) {
+        if (node.isStatic()) {
+            if ("java.lang.String.format".equals(node.getImportedName())) {
+                formatIsStringFormat = true;
+            }
+            if ("java.lang.String".equals(node.getImportedName()) && node.isImportOnDemand()) {
+                formatIsStringFormat = true;
+            }
+        }
+        return data;
     }
 
     @Override
@@ -101,8 +128,13 @@ public class InvalidLogMessageFormatRule extends AbstractJavaRule {
 
         // remove the message parameter
         final ASTExpression messageParam = argumentList.remove(0);
-        final int expectedArguments = expectedArguments(messageParam);
 
+        // ignore if String.format
+        if (isStringFormatCall(messageParam)) {
+            return data;
+        }
+
+        final int expectedArguments = expectedArguments(messageParam);
         if (expectedArguments == -1) {
             // ignore if we couldn't analyze the message parameter
             return data;
@@ -114,10 +146,20 @@ public class InvalidLogMessageFormatRule extends AbstractJavaRule {
             removeThrowableParam(argumentList);
         }
 
-        if (argumentList.size() < expectedArguments) {
+        int providedArguments = argumentList.size();
+
+        // last argument could be an array with parameters
+        if (argumentList.size() == 1 && TypeTestUtil.isA("java.lang.Object[]", argumentList.get(0))) {
+            ASTArrayInitializer arrayInitializer = argumentList.get(0).getFirstDescendantOfType(ASTArrayInitializer.class);
+            if (arrayInitializer != null) {
+                providedArguments = arrayInitializer.getNumChildren();
+            }
+        }
+
+        if (providedArguments < expectedArguments) {
             addViolationWithMessage(data, node,
                     "Missing arguments," + getExpectedMessage(argumentList, expectedArguments));
-        } else if (argumentList.size() > expectedArguments) {
+        } else if (providedArguments > expectedArguments) {
             addViolationWithMessage(data, node,
                     "Too many arguments," + getExpectedMessage(argumentList, expectedArguments));
         }
@@ -131,7 +173,7 @@ public class InvalidLogMessageFormatRule extends AbstractJavaRule {
         return TypeTestUtil.isA(Throwable.class, last.getFirstDescendantOfType(ASTClassOrInterfaceType.class));
     }
 
-    private boolean hasTypeThrowable(ASTPrimaryExpression last) {
+    private boolean hasTypeThrowable(TypeNode last) {
         // if the type could be determined already
         return last.getType() != null && TypeTestUtil.isA(Throwable.class, last);
     }
@@ -159,9 +201,10 @@ public class InvalidLogMessageFormatRule extends AbstractJavaRule {
             return;
         }
         int lastIndex = params.size() - 1;
-        ASTPrimaryExpression last = params.get(lastIndex).getFirstDescendantOfType(ASTPrimaryExpression.class);
+        ASTExpression lastExpression = params.get(lastIndex);
+        ASTPrimaryExpression last = lastExpression.getFirstDescendantOfType(ASTPrimaryExpression.class);
 
-        if (isNewThrowable(last) || hasTypeThrowable(last) || isReferencingThrowable(last) || isLambdaParameter(last)) {
+        if (isNewThrowable(last) || hasTypeThrowable(lastExpression) || isReferencingThrowable(last) || isLambdaParameter(last)) {
             params.remove(lastIndex);
         }
     }
@@ -175,14 +218,17 @@ public class InvalidLogMessageFormatRule extends AbstractJavaRule {
                 varName = name.getImage();
             }
         }
-        for (NameDeclaration decl : prefix.getScope().getDeclarations().keySet()) {
-            if (decl.getName().equals(varName)) {
-                if (decl.getNode().getParent() instanceof ASTLambdaExpression) {
+        Scope scope = prefix == null ? null : prefix.getScope();
+        while (scope != null) {
+            // Try recursively to find the expected NameDeclaration
+            for (NameDeclaration decl : scope.getDeclarations().keySet()) {
+                if (decl.getName().equals(varName)) {
                     // If the last parameter is a lambda parameter, then we also ignore it - regardless of the type.
                     // This is actually a workaround, since type resolution doesn't resolve the types of lambda parameters.
-                    return true;
+                    return decl.getNode().getParent() instanceof ASTLambdaExpression;
                 }
             }
+            scope = scope.getParent();
         }
         return false;
     }
@@ -192,54 +238,57 @@ public class InvalidLogMessageFormatRule extends AbstractJavaRule {
                 + params.size();
     }
 
+    private boolean isStringFormatCall(ASTExpression node) {
+        if (node.getNumChildren() > 0 && node.getChild(0) instanceof ASTPrimaryExpression
+                && node.getChild(0).getNumChildren() > 0 && node.getChild(0).getChild(0) instanceof ASTPrimaryPrefix
+                && node.getChild(0).getChild(0).getNumChildren() > 0 && node.getChild(0).getChild(0).getChild(0) instanceof ASTName) {
+            String name = node.getChild(0).getChild(0).getChild(0).getImage();
+
+            return "String.format".equals(name) || formatIsStringFormat && "format".equals(name);
+        }
+        return false;
+    }
+
     private int expectedArguments(final ASTExpression node) {
         int count = -1;
         // look if the logger has a literal message
         if (node.getFirstDescendantOfType(ASTLiteral.class) != null) {
             count = countPlaceholders(node);
         } else if (node.getFirstDescendantOfType(ASTName.class) != null) {
-            final String variableName = node.getFirstDescendantOfType(ASTName.class).getImage();
-            // look if the message is defined locally in a method/constructor, initializer block or lambda expression
-            final JavaNode parentBlock = node.getFirstParentOfAnyType(ASTMethodOrConstructorDeclaration.class, ASTInitializer.class, ASTLambdaExpression.class);
-            if (parentBlock != null) {
-                final List<ASTVariableDeclarator> localVariables = parentBlock.findDescendantsOfType(ASTVariableDeclarator.class);
-                count = getAmountOfExpectedArguments(variableName, localVariables);
-            }
-
-            if (count == -1) {
-                // look if the message is defined in a field
-                final List<ASTFieldDeclaration> fieldlist = node.getFirstParentOfAnyType(ASTClassOrInterfaceBody.class, ASTEnumBody.class)
-                        .findDescendantsOfType(ASTFieldDeclaration.class);
-                // only look for ASTVariableDeclarator that are Fields
-                final List<ASTVariableDeclarator> fields = new ArrayList<>(fieldlist.size());
-                for (final ASTFieldDeclaration astFieldDeclaration : fieldlist) {
-                    fields.add(astFieldDeclaration.getFirstChildOfType(ASTVariableDeclarator.class));
+            NameDeclaration nameDeclaration = node.getFirstDescendantOfType(ASTName.class).getNameDeclaration();
+            if (nameDeclaration instanceof VariableNameDeclaration) {
+                ASTVariableDeclarator varDecl = ((VariableNameDeclaration) nameDeclaration).getDeclaratorId()
+                    .getFirstParentOfType(ASTVariableDeclarator.class);
+                // ASTVariableDeclaratorId is also used in formal parameters, lambda parameters, exception vars
+                // in that case, there is no variable declaration
+                // for local vars and fields, there is a varDecl
+                if (varDecl != null) {
+                    count = getAmountOfExpectedArguments(varDecl);
                 }
-                count = getAmountOfExpectedArguments(variableName, fields);
             }
         }
         return count;
     }
 
-    private int getAmountOfExpectedArguments(final String variableName, final List<ASTVariableDeclarator> variables) {
-        for (final ASTVariableDeclarator astVariableDeclarator : variables) {
-            if (astVariableDeclarator.getFirstChildOfType(ASTVariableDeclaratorId.class).getImage()
-                    .equals(variableName)) {
-                ASTVariableInitializer variableInitializer = astVariableDeclarator
-                        .getFirstDescendantOfType(ASTVariableInitializer.class);
-                ASTExpression expression = null;
-                if (variableInitializer != null) {
-                    expression = variableInitializer.getFirstChildOfType(ASTExpression.class);
-                }
-                if (expression != null) {
-                    return countPlaceholders(expression);
-                }
-            }
+    private int getAmountOfExpectedArguments(ASTVariableDeclarator astVariableDeclarator) {
+        ASTVariableInitializer variableInitializer = astVariableDeclarator
+                .getFirstDescendantOfType(ASTVariableInitializer.class);
+        ASTExpression expression = null;
+        if (variableInitializer != null) {
+            expression = variableInitializer.getFirstChildOfType(ASTExpression.class);
+        }
+        if (expression != null) {
+            return countPlaceholders(expression);
         }
         return -1;
     }
 
     private int countPlaceholders(final ASTExpression node) {
+        // ignore if String.format
+        if (isStringFormatCall(node)) {
+            return -1;
+        }
+
         List<ASTLiteral> literals = getStringLiterals(node);
         if (literals.isEmpty()) {
             // -1 we could not analyze the message parameter
@@ -250,7 +299,13 @@ public class InvalidLogMessageFormatRule extends AbstractJavaRule {
         // together...
         int result = 0;
         for (ASTLiteral stringLiteral : literals) {
-            result += StringUtils.countMatches(stringLiteral.getImage(), "{}");
+            Matcher matcher = PLACEHOLDER_AND_FORMAT_SPECIFIER.matcher(stringLiteral.getImage());
+            while (matcher.find()) {
+                String format = matcher.group();
+                if (!"%%".equals(format) && !"%n".equals(format)) {
+                    result++;
+                }
+            }
         }
         return result;
     }

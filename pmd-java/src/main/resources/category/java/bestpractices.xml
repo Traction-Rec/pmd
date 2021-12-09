@@ -301,14 +301,29 @@ public class Foo {
           class="net.sourceforge.pmd.lang.java.rule.bestpractices.AvoidReassigningParametersRule"
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_bestpractices.html#avoidreassigningparameters">
         <description>
-Reassigning values to incoming parameters is not recommended.  Use temporary local variables instead.
+Reassigning values to incoming parameters of a method or constructor is not recommended, as this can
+make the code more difficult to understand. The code is often read with the assumption that parameter values
+don't change and an assignment violates therefore the principle of least astonishment. This is especially a
+problem if the parameter is documented e.g. in the method's javadoc and the new content differs from the original
+documented content.
+
+Use temporary local variables instead. This allows you to assign a new name, which makes the code better
+understandable.
+
+Note that this rule considers both methods and constructors. If there are multiple assignments for a formal
+parameter, then only the first assignment is reported.
         </description>
         <priority>2</priority>
         <example>
 <![CDATA[
-public class Foo {
-  private void foo(String bar) {
-    bar = "something else";
+public class Hello {
+  private void greet(String name) {
+    name = name.trim();
+    System.out.println("Hello " + name);
+
+    // preferred
+    String trimmedName = name.trim();
+    System.out.println("Hello " + trimmedName);
   }
 }
 ]]>
@@ -596,13 +611,26 @@ for (int i = 0, j = 0; i < 10; i++, j += 2) {
         <description>
 Whenever using a log level, one should check if the loglevel is actually enabled, or
 otherwise skip the associate String creation and manipulation.
+
+An alternative to checking the log level are substituting parameters, formatters or lazy logging
+with lambdas. The available alternatives depend on the actual logging framework.
         </description>
         <priority>2</priority>
         <example>
 <![CDATA[
-    // Add this for performance
-    if (log.isDebugEnabled() { ...
-        log.debug("log something" + " and " + "concat strings");
+// Add this for performance
+if (log.isDebugEnabled()) {
+    log.debug("log something" + param1 + " and " + param2 + "concat strings");
+}
+
+// Avoid the guarding if statement with substituting parameters
+log.debug("log something {} and {}", param1, param2);
+
+// Avoid the guarding if statement with formatters
+log.debug("log something %s and %s", param1, param2);
+
+// Avoid the guarding if statement with lazy logging and lambdas
+log.debug("log something expensive: {}", () -> calculateExpensiveLoggingText());
 ]]>
         </example>
     </rule>
@@ -784,6 +812,71 @@ public class MyTest {
     public void testGood() {
         doSomething();
     }
+}
+]]>
+        </example>
+    </rule>
+
+    <rule name="JUnit5TestShouldBePackagePrivate"
+          language="java"
+          since="6.35.0"
+          message="JUnit 5 tests should be package-private."
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
+          typeResolution="true"
+          externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_bestpractices.html#junit5testshouldbepackageprivate">
+        <description><![CDATA[
+Reports JUnit 5 test classes and methods that are not package-private.
+Contrary to JUnit 4 tests, which required public visibility to be run by the engine,
+JUnit 5 tests can also be run if they're package-private. Marking them as such
+is a good practice to limit their visibility.
+
+Test methods are identified as those which use `@Test`, `@RepeatedTest`,
+`@TestFactory`, `@TestTemplate` or `@ParameterizedTest`.
+            ]]></description>
+        <priority>3</priority>
+        <properties>
+            <property name="version" value="2.0"/>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//ClassOrInterfaceDeclaration[
+    (: a Junit 5 test class, ie, it has methods with the annotation :)
+    @Interface=false() and
+    ClassOrInterfaceBody/ClassOrInterfaceBodyDeclaration
+        [Annotation//Name[
+            pmd-java:typeIs('org.junit.jupiter.api.Test') or pmd-java:typeIs('org.junit.jupiter.api.RepeatedTest')
+            or pmd-java:typeIs('org.junit.jupiter.api.TestFactory') or pmd-java:typeIs('org.junit.jupiter.api.TestTemplate')
+            or pmd-java:typeIs('org.junit.jupiter.params.ParameterizedTest')
+        ]]
+        [MethodDeclaration]
+]/(
+    self::*[@Abstract=false() and (@Public=true() or @Protected=true())]
+|   ClassOrInterfaceBody/ClassOrInterfaceBodyDeclaration
+        [Annotation//Name[
+            pmd-java:typeIs('org.junit.jupiter.api.Test') or pmd-java:typeIs('org.junit.jupiter.api.RepeatedTest')
+            or pmd-java:typeIs('org.junit.jupiter.api.TestFactory') or pmd-java:typeIs('org.junit.jupiter.api.TestTemplate')
+            or pmd-java:typeIs('org.junit.jupiter.params.ParameterizedTest')
+        ]]
+        /MethodDeclaration[@Public=true() or @Protected=true()]
+)
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+            <![CDATA[
+class MyTest { // not public, that's fine
+    @Test
+    public void testBad() { } // should not have a public modifier
+
+    @Test
+    protected void testAlsoBad() { } // should not have a protected modifier
+
+    @Test
+    private void testNoRun() { } // should not have a private modifier
+
+    @Test
+    void testGood() { } // package private as expected
 }
 ]]>
         </example>
@@ -1182,6 +1275,36 @@ public class Foo {
         </example>
     </rule>
 
+    <rule name="PrimitiveWrapperInstantiation"
+          language="java"
+          since="6.37.0"
+          message="Do not use `new {0}(...)`, prefer `{0}.valueOf(...)`"
+          class="net.sourceforge.pmd.lang.java.rule.bestpractices.PrimitiveWrapperInstantiationRule"
+          externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_bestpractices.html#primitivewrapperinstantiation">
+        <description>
+            Reports usages of primitive wrapper constructors. They are deprecated
+            since Java 9 and should not be used. Even before Java 9, they can
+            be replaced with usage of the corresponding static `valueOf` factory method
+            (which may be automatically inserted by the compiler since Java 1.5).
+            This has the advantage that it may reuse common instances instead of creating
+            a new instance each time.
+
+            Note that for `Boolean`, the named constants `Boolean.TRUE` and `Boolean.FALSE`
+            are preferred instead of `Boolean.valueOf`.
+        </description>
+        <priority>3</priority>
+        <example>
+<![CDATA[
+            public class Foo {
+                private Integer ZERO = new Integer(0);      // violation
+                private Integer ZERO1 = Integer.valueOf(0); // better
+                private Integer ZERO1 = 0;                  // even better
+            }
+            ]]>
+        </example>
+    </rule>
+
+
     <rule name="ReplaceEnumerationWithIterator"
           language="java"
           since="3.4"
@@ -1271,15 +1394,62 @@ public class Foo {
         </example>
     </rule>
 
+    <rule name="SimplifiableTestAssertion"
+          language="java"
+          since="6.37.0"
+          message="Assertion may be simplified using {0}"
+          typeResolution="true"
+          class="net.sourceforge.pmd.lang.java.rule.bestpractices.SimplifiableTestAssertionRule"
+          externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_bestpractices.html#simplifiabletestassertion">
+        <description>
+            Reports test assertions that may be simplified using a more specific
+            assertion method. This enables better error messages, and makes the
+            assertions more readable.
+
+            The rule only applies within test classes for the moment. It replaces
+            the deprecated rules {% rule UseAssertEqualsInsteadOfAssertTrue %},
+            {% rule UseAssertNullInsteadOfAssertTrue %}, {% rule UseAssertSameInsteadOfAssertTrue %},
+            {% rule UseAssertTrueInsteadOfAssertEquals %}, and {% rule java/design/SimplifyBooleanAssertion %}.
+        </description>
+        <priority>3</priority>
+        <example>
+<![CDATA[
+import org.junit.Test;
+import static org.junit.Assert.*;
+
+class SomeTestClass {
+    Object a,b;
+    @Test
+    void testMethod() {
+        assertTrue(a.equals(b)); // could be assertEquals(a, b);
+        assertTrue(!a.equals(b)); // could be assertNotEquals(a, b);
+
+        assertTrue(!something); // could be assertFalse(something);
+        assertFalse(!something); // could be assertTrue(something);
+
+        assertTrue(a == b); // could be assertSame(a, b);
+        assertTrue(a != b); // could be assertNotSame(a, b);
+
+        assertTrue(a == null); // could be assertNull(a);
+        assertTrue(a != null); // could be assertNotNull(a);
+    }
+}
+            ]]>
+        </example>
+    </rule>
+
     <rule name="SwitchStmtsShouldHaveDefault"
           language="java"
           since="1.0"
-          message="Switch statements should have a default label"
+          message="Switch statements should be exhaustive, add a default case (or missing enum branches)"
           typeResolution="true"
           class="net.sourceforge.pmd.lang.rule.XPathRule"
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_bestpractices.html#switchstmtsshouldhavedefault">
         <description>
-All switch statements should include a default option to catch any unspecified values.
+            Switch statements should be exhaustive, to make their control flow
+            easier to follow. This can be achieved by adding a `default` case, or,
+            if the switch is on an enum type, by ensuring there is one switch branch
+            for each enum constant.
         </description>
         <priority>3</priority>
         <properties>
@@ -1292,14 +1462,14 @@ All switch statements should include a default option to catch any unspecified v
         </properties>
         <example>
 <![CDATA[
-public void bar() {
+class Foo {{
     int x = 2;
     switch (x) {
       case 1: int j = 6;
       case 2: int j = 8;
-          // missing default: here
+      // missing default: here
     }
-}
+}}
 ]]>
         </example>
     </rule>
@@ -1365,7 +1535,7 @@ class Foo{
             The rule subsumes {% rule "UnusedLocalVariable" %}, and {% rule "UnusedFormalParameter" %}.
             Those violations are filtered
             out by default, in case you already have enabled those rules, but may be enabled with the property
-            `reportUnusedVariables`. Variables whose name starts with `ignored` are filtered out, as
+            `reportUnusedVariables`. Variables whose name starts with `ignored` or `unused` are filtered out, as
             is standard practice for exceptions.
 
             Limitations:
@@ -1476,10 +1646,13 @@ class C {
           class="net.sourceforge.pmd.lang.java.rule.bestpractices.UnusedFormalParameterRule"
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_bestpractices.html#unusedformalparameter">
         <description>
-Avoid passing parameters to methods or constructors without actually referencing them in the method body.
+Reports parameters of methods and constructors that are not referenced them in the method body.
+Parameters whose name starts with `ignored` or `unused` are filtered out.
+
 Removing unused formal parameters from public methods could cause a ripple effect through the code base.
 Hence, by default, this rule only considers private methods. To include non-private methods, set the
 `checkAll` property to `true`.
+
         </description>
         <priority>3</priority>
         <example>
@@ -1496,13 +1669,18 @@ public class Foo {
     <rule name="UnusedImports"
           language="java"
           since="1.0"
-          message="Avoid unused imports such as ''{0}''"
+          message="Unused import ''{0}''"
           class="net.sourceforge.pmd.lang.java.rule.bestpractices.UnusedImportsRule"
           typeResolution="true"
+          deprecated="true"
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_bestpractices.html#unusedimports">
         <description>
-Avoid unused import statements to prevent unwanted dependencies.
-This rule will also find unused on demand imports, i.e. import com.foo.*.
+Reports import statements that are not used within the file. This also reports
+duplicate imports, and imports from the same package. The simplest fix is just
+to delete those imports.
+
+This rule is deprecated since PMD 6.34.0. Use the rule {% rule "java/codestyle/UnnecessaryImport" %}
+from category codestyle instead.
         </description>
         <priority>4</priority>
         <example>
@@ -1523,6 +1701,7 @@ public class Foo {}
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_bestpractices.html#unusedlocalvariable">
         <description>
 Detects when a local variable is declared and/or assigned, but not used.
+Variables whose name starts with `ignored` or `unused` are filtered out.
         </description>
         <priority>3</priority>
         <example>
@@ -1585,9 +1764,12 @@ public class Something {
           message="Use assertEquals(x, y) instead of assertTrue(x.equals(y))"
           class="net.sourceforge.pmd.lang.rule.XPathRule"
           typeResolution="true"
+          deprecated="true"
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_bestpractices.html#useassertequalsinsteadofasserttrue">
         <description>
 This rule detects JUnit assertions in object equality. These assertions should be made by more specific methods, like assertEquals.
+
+Deprecated since PMD 6.37.0, use {% rule SimplifiableTestAssertion %} instead.
         </description>
         <priority>3</priority>
         <properties>
@@ -1635,10 +1817,13 @@ public class FooTest extends TestCase {
           message="Use assertNull(x) instead of assertTrue(x==null), or assertNotNull(x) vs assertFalse(x==null)"
           class="net.sourceforge.pmd.lang.rule.XPathRule"
           typeResolution="true"
+          deprecated="true"
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_bestpractices.html#useassertnullinsteadofasserttrue">
         <description>
 This rule detects JUnit assertions in object references equality. These assertions should be made by
 more specific methods, like assertNull, assertNotNull.
+
+Deprecated since PMD 6.37.0, use {% rule SimplifiableTestAssertion %} instead.
         </description>
         <priority>3</priority>
         <properties>
@@ -1689,10 +1874,13 @@ public class FooTest extends TestCase {
           message="Use assertSame(x, y) instead of assertTrue(x==y), or assertNotSame(x,y) vs assertFalse(x==y)"
           class="net.sourceforge.pmd.lang.rule.XPathRule"
           typeResolution="true"
+          deprecated="true"
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_bestpractices.html#useassertsameinsteadofasserttrue">
         <description>
 This rule detects JUnit assertions in object references equality. These assertions should be made
 by more specific methods, like assertSame, assertNotSame.
+
+Deprecated since PMD 6.37.0, use {% rule SimplifiableTestAssertion %} instead.
         </description>
         <priority>3</priority>
         <properties>
@@ -1740,9 +1928,12 @@ public class FooTest extends TestCase {
           since="5.0"
           message="Use assertTrue(x)/assertFalse(x) instead of assertEquals(true, x)/assertEquals(false, x) or assertEquals(Boolean.TRUE, x)/assertEquals(Boolean.FALSE, x)."
           class="net.sourceforge.pmd.lang.rule.XPathRule"
+          deprecated="true"
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_bestpractices.html#useasserttrueinsteadofassertequals">
         <description>
 When asserting a value is the same as a literal or Boxed boolean, use assertTrue/assertFalse, instead of assertEquals.
+
+Deprecated since PMD 6.37.0, use {% rule SimplifiableTestAssertion %} instead.
         </description>
         <priority>3</priority>
         <properties>
@@ -1814,13 +2005,58 @@ public class Foo {
         </example>
     </rule>
 
+    <rule name="UseStandardCharsets"
+          language="java"
+          since="6.34.0"
+          minimumLanguageVersion="1.7"
+          message="Please use StandardCharsets constants"
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
+          externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_bestpractices.html#usestandardcharsets">
+        <description>
+Starting with Java 7, StandardCharsets provides constants for common Charset objects, such as UTF-8.
+Using the constants is less error prone, and can provide a small performance advantage compared to `Charset.forName(...)`
+since no scan across the internal `Charset` caches is needed.
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="version" value="2.0"/>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//PrimaryExpression[PrimaryPrefix/Name/@Image = 'Charset.forName']
+    /PrimarySuffix/Arguments/ArgumentList/Expression/PrimaryExpression/PrimaryPrefix
+        /Literal[@Image = ('"US-ASCII"', '"ISO-8859-1"', '"UTF-8"', '"UTF-16BE"', '"UTF-16LE"', '"UTF-16"')]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+public class UseStandardCharsets {
+    public void run() {
+
+        // looking up the charset dynamically
+        try (OutputStreamWriter osw = new OutputStreamWriter(out, Charset.forName("UTF-8"))) {
+            osw.write("test");
+        }
+
+        // best to use StandardCharsets
+        try (OutputStreamWriter osw = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
+            osw.write("test");
+        }
+    }
+}
+]]>
+        </example>
+    </rule>
+
     <rule name="UseTryWithResources"
           language="java"
           minimumLanguageVersion="1.7"
           since="6.12.0"
           typeResolution="true"
           message="Consider using a try-with-resources statement instead of explicitly closing the resource"
-          class="net.sourceforge.pmd.lang.rule.XPathRule"
+          class="net.sourceforge.pmd.lang.java.rule.bestpractices.UseTryWithResourcesRule"
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_bestpractices.html#usetrywithresources">
         <description>
 Java 7 introduced the try-with-resources statement. This statement ensures that each resource is closed at the end
@@ -1830,23 +2066,6 @@ the try block was suppressed. With the `try`-with-resources statement, the excep
 preserved.
         </description>
         <priority>3</priority>
-        <properties>
-            <property name="closeMethods" type="List[String]" delimiter="," description="Method names in finally block, which trigger this rule" value="close,closeQuietly"/>
-            <property name="version" value="2.0" />
-            <property name="xpath">
-                <value>
-<![CDATA[
-//TryStatement[FinallyStatement//Name[
-    tokenize(@Image, '\.')[last()] = $closeMethods
-][
-    pmd-java:typeIs('java.lang.AutoCloseable')
-    or
-    ../../PrimarySuffix/Arguments//PrimaryPrefix[pmd-java:typeIs('java.lang.AutoCloseable')]
-]]
-]]>
-                </value>
-            </property>
-        </properties>
         <example>
 <![CDATA[
 public class TryWithResources {
@@ -1884,9 +2103,11 @@ public class TryWithResources {
           typeResolution="true"
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_bestpractices.html#usevarargs">
         <description>
-Java 5 introduced the varargs parameter declaration for methods and constructors.  This syntactic
+Java 5 introduced the varargs parameter declaration for methods and constructors. This syntactic
 sugar provides flexibility for users of these methods and constructors, allowing them to avoid
 having to deal with the creation of an array.
+
+Byte arrays in any method and String arrays in `public static void main(String[])` methods are ignored.
         </description>
         <priority>4</priority>
         <properties>
