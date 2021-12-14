@@ -6,23 +6,20 @@ package net.sourceforge.pmd.lang.java.ast;
 
 import java.util.Iterator;
 
-import net.sourceforge.pmd.annotation.Experimental;
-
 
 /**
  * Represents the {@code permits} clause of a (sealed) class declaration.
  *
- * <p>This is a Java 15 Preview feature.
+ * <p>This is a Java 17 Feature.
  *
- * <p>See https://openjdk.java.net/jeps/360
+ * <p>See https://openjdk.java.net/jeps/409
  *
  * <pre class="grammar">
  *
- *  PermittedSubclasses ::= "permits" (TypeAnnotation)* ClassOrInterfaceType
- *                ( "," (TypeAnnotation)* ClassOrInterfaceType )*
+ *  PermitsList ::= "permits" ClassOrInterfaceType
+ *                ( "," ClassOrInterfaceType )*
  * </pre>
  */
-@Experimental
 public final class ASTPermitsList extends AbstractJavaNode implements Iterable<ASTClassOrInterfaceType> {
 
     ASTPermitsList(int id) {

@@ -1643,4 +1643,88 @@ public class UnusedPrivateMethodFP {
 }
         ]]></code>
     </test-code>
+    <test-code>
+        <description>#2454 [java] UnusedPrivateMethod violation for disabled annotation in 6.23.0</description>
+        <!-- Note: weird whitespace in the property is important        -->
+        <rule-property name="ignoredAnnotations">java
+            .lang.Deprecated</rule-property>
+        <expected-problems>0</expected-problems>
+        <code><![CDATA[
+public class OOO {
+    @Deprecated
+    private void shutdown() {
+        server.shutdown();
+    }
+}
+        ]]></code>
+    </test-code>
+
+    <test-code>
+        <description>[java] UnusedPrivateMethod false positive when passing in lombok.val as argument #3118</description>
+        <expected-problems>0</expected-problems>
+        <code><![CDATA[
+import lombok.val;
+
+public class ValExample {
+    public void example() {
+        val example = "value";
+        aPrivateMethod(example);
+    }
+
+    private void aPrivateMethod(String s) {
+        System.out.println(s);
+    }
+}
+        ]]></code>
+    </test-code>
+
+    <test-code>
+        <description>False negative with unused private method in nested classes</description>
+        <expected-problems>2</expected-problems>
+        <expected-linenumbers>2,4</expected-linenumbers>
+        <code><![CDATA[
+public class Outer {
+    private void outerUnusedMethod() {}
+    public class Inner {
+        private void innerUnusedMethod() {} // false negative
+        private void innerUsedByInnerMethod() {}
+        public void publicInnerMethod() {
+            innerUsedByInnerMethod();
+        }
+        private void innerUsedByOuterMethod() {}
+    }
+    public void publicOuterMethod() {
+        Inner inner = new Inner();
+        inner.innerUsedByOuterMethod();
+    }
+}
+        ]]></code>
+    </test-code>
+    <test-code>
+        <description>#1175 False positive with Junit 5 MethodSource</description>
+        <expected-problems>0</expected-problems>
+        <code><![CDATA[
+import java.util.stream.Stream;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+
+public class Outer {
+    private static Stream<Arguments> basenameKeyArguments() {
+        return Stream.of(
+                Arguments.of("simple", "simple"),
+                Arguments.of("simple", "one/two/many/simple"),
+                Arguments.of("simple", "//////an/////awful/key////simple")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("basenameKeyArguments")
+    void basenameKeyTest(final String expected, final String testString) {
+        assertEquals(expected, NetworkTable.basenameKey(testString));
+    }
+
+}
+        ]]></code>
+    </test-code>
 </test-data>

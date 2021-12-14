@@ -629,44 +629,43 @@ public class JavaParserVisitorAdapter implements JavaParserVisitor {
     }
 
     @Override
-    @Experimental
-    public Object visit(ASTTypeTestPattern node, Object data) {
+    public Object visit(ASTTypePattern node, Object data) {
         return visit((JavaNode) node, data);
     }
 
     @Override
-    @Experimental
     public Object visit(ASTRecordDeclaration node, Object data) {
         return visit((JavaNode) node, data);
     }
 
     @Override
-    @Experimental
     public Object visit(ASTRecordComponentList node, Object data) {
         return visit((JavaNode) node, data);
     }
 
     @Override
-    @Experimental
     public Object visit(ASTRecordComponent node, Object data) {
         return visit((JavaNode) node, data);
     }
 
     @Override
-    @Experimental
     public Object visit(ASTRecordBody node, Object data) {
         return visit((JavaNode) node, data);
     }
 
     @Override
-    @Experimental
-    public Object visit(ASTRecordConstructorDeclaration node, Object data) {
+    public Object visit(ASTCompactConstructorDeclaration node, Object data) {
         return visit((JavaNode) node, data);
     }
 
     @Override
-    @Experimental
     public Object visit(ASTPermitsList node, Object data) {
+        return visit((JavaNode) node, data);
+    }
+
+    @Experimental
+    @Override
+    public Object visit(ASTGuardedPattern node, Object data) {
         return visit((JavaNode) node, data);
     }
 }

@@ -47,6 +47,7 @@ public class Report implements Iterable<RuleViolation> {
     private final List<ThreadSafeReportListener> listeners = new ArrayList<>();
     private final List<ProcessingError> errors = new ArrayList<>();
     private final List<ConfigurationError> configErrors = new ArrayList<>();
+    private final Object lock = new Object();
     private Map<Integer, String> linesToSuppress = new HashMap<>();
     private long start;
     private long end;
@@ -311,6 +312,7 @@ public class Report implements Iterable<RuleViolation> {
      * @param listener
      *            the listener
      */
+    @Deprecated
     public void addListener(ThreadSafeReportListener listener) {
         listeners.add(listener);
     }
@@ -394,20 +396,25 @@ public class Report implements Iterable<RuleViolation> {
      * summary over all violations is needed as PMD creates one report per file
      * by default.
      *
-     * @param r
-     *            the report to be merged into this.
+     * <p>This is synchronized on an internal lock (note that other mutation
+     * operations are not synchronized, todo for pmd 7).
+     *
+     * @param r the report to be merged into this.
+     *
      * @see AbstractAccumulatingRenderer
      */
     public void merge(Report r) {
-        errors.addAll(r.errors);
-        configErrors.addAll(r.configErrors);
-        metrics.addAll(r.metrics);
-        suppressedRuleViolations.addAll(r.suppressedRuleViolations);
+        synchronized (lock) {
+            errors.addAll(r.errors);
+            configErrors.addAll(r.configErrors);
+            metrics.addAll(r.metrics);
+            suppressedRuleViolations.addAll(r.suppressedRuleViolations);
 
-        for (RuleViolation violation : r.getViolations()) {
-            int index = Collections.binarySearch(violations, violation, RuleViolation.DEFAULT_COMPARATOR);
-            violations.add(index < 0 ? -index - 1 : index, violation);
-            violationTree.addRuleViolation(violation);
+            for (RuleViolation violation : r.getViolations()) {
+                int index = Collections.binarySearch(violations, violation, RuleViolation.DEFAULT_COMPARATOR);
+                violations.add(index < 0 ? -index - 1 : index, violation);
+                violationTree.addRuleViolation(violation);
+            }
         }
     }
 
@@ -623,6 +630,10 @@ public class Report implements Iterable<RuleViolation> {
         return end - start;
     }
 
+    /**
+     * @deprecated {@link ThreadSafeReportListener} is deprecated
+     */
+    @Deprecated
     public List<ThreadSafeReportListener> getListeners() {
         return listeners;
     }
@@ -632,7 +643,10 @@ public class Report implements Iterable<RuleViolation> {
      *
      * @param allListeners
      *            the report listeners
+     *
+     * @deprecated {@link ThreadSafeReportListener} is deprecated
      */
+    @Deprecated
     public void addListeners(List<ThreadSafeReportListener> allListeners) {
         listeners.addAll(allListeners);
     }

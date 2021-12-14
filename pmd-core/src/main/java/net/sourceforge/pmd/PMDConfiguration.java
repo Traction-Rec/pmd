@@ -13,6 +13,7 @@ import java.util.Properties;
 import net.sourceforge.pmd.cache.AnalysisCache;
 import net.sourceforge.pmd.cache.FileAnalysisCache;
 import net.sourceforge.pmd.cache.NoopAnalysisCache;
+import net.sourceforge.pmd.cli.PmdParametersParseResult;
 import net.sourceforge.pmd.lang.LanguageRegistry;
 import net.sourceforge.pmd.lang.LanguageVersion;
 import net.sourceforge.pmd.lang.LanguageVersionDiscoverer;
@@ -21,8 +22,11 @@ import net.sourceforge.pmd.renderers.RendererFactory;
 import net.sourceforge.pmd.util.ClasspathClassLoader;
 
 /**
- * This class contains the details for the runtime configuration of PMD. There
- * are several aspects to the configuration of PMD.
+ * This class contains the details for the runtime configuration of a PMD run.
+ * You can either create one and set individual fields, or mimic a CLI run by
+ * using {@link PmdParametersParseResult#extractParameters(String...) extractParameters}.
+ *
+ * <p>There are several aspects to the configuration of PMD.
  *
  * <p>The aspects related to generic PMD behavior:</p>
  * <ul>
@@ -84,6 +88,7 @@ public class PMDConfiguration extends AbstractConfiguration {
     private int threads = Runtime.getRuntime().availableProcessors();
     private ClassLoader classLoader = getClass().getClassLoader();
     private LanguageVersionDiscoverer languageVersionDiscoverer = new LanguageVersionDiscoverer();
+    private LanguageVersion forceLanguageVersion;
 
     // Rule and source file options
     private String ruleSets;
@@ -204,6 +209,35 @@ public class PMDConfiguration extends AbstractConfiguration {
      */
     public LanguageVersionDiscoverer getLanguageVersionDiscoverer() {
         return languageVersionDiscoverer;
+    }
+
+    /**
+     * Get the LanguageVersion specified by the force-language parameter. This overrides detection based on file
+     * extensions
+     *
+     * @return The LanguageVersion.
+     */
+    public LanguageVersion getForceLanguageVersion() {
+        return forceLanguageVersion;
+    }
+
+    /**
+     * Is the force-language parameter set to anything?
+     *
+     * @return true if ${@link #getForceLanguageVersion()} is not null
+     */
+    public boolean isForceLanguageVersion() {
+        return forceLanguageVersion != null;
+    }
+
+    /**
+     * Set the LanguageVersion specified by the force-language parameter. This overrides detection based on file
+     * extensions
+     *
+     * @param forceLanguageVersion the language version
+     */
+    public void setForceLanguageVersion(LanguageVersion forceLanguageVersion) {
+        this.forceLanguageVersion = forceLanguageVersion;
     }
 
     /**

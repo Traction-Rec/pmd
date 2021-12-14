@@ -14,61 +14,100 @@ This is a {{ site.pmd.release_type }} release.
 
 ### New and noteworthy
 
-##### CPD
+#### GitHub Action for PMD
 
-* The C# module now supports the new option [`--ignore-literal-sequences`](https://pmd.github.io/latest/pmd_userdocs_cpd.html#-ignore-literal-sequences), which can be used to avoid detection of some uninteresting clones. Support for other languages may be added in the future. See [#2945](https://github.com/pmd/pmd/pull/2945)
+PMD now has its own official GitHub Action: [GitHub Action for PMD](https://github.com/marketplace/actions/pmd).
+It can execute PMD with your own ruleset against your project. It creates a [SARIF](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
+report which is uploaded as a build artifact. Furthermore the build can be failed based on the number of violations.
 
-* The Scala module now supports [suppression](https://pmd.github.io/latest/pmd_userdocs_cpd.html#suppression) through `CPD-ON`/`CPD-OFF` comment pairs. See [#2929](https://github.com/pmd/pmd/pull/2929)
+Feedback and pull requests are welcome at <https://github.com/pmd/pmd-github-action>.
+
+#### Last release in 2021
+
+This minor release will be the last one in 2021. The next release is scheduled to be end of January 2022.
 
 ### Fixed Issues
 
 *   core
-    * [#1939](https://github.com/pmd/pmd/issues/1939): \[core] XPath expressions return handling
-    * [#1961](https://github.com/pmd/pmd/issues/1961): \[core] Text renderer should include name of violated rule
-    * [#2874](https://github.com/pmd/pmd/pull/2874): \[core] Fix XMLRenderer with UTF-16
-*   cs
-    * [#2938](https://github.com/pmd/pmd/pull/2938): \[cs] CPD: ignoring using directives could not be disabled
-*   java
-    * [#2911](https://github.com/pmd/pmd/issues/2911): \[java] `ClassTypeResolver#searchNodeNameForClass` leaks memory
-    * [#2934](https://github.com/pmd/pmd/pull/2934): \[java] CompareObjectsWithEquals / UseEqualsToCompareStrings - False negatives with fields
-    * [#2940](https://github.com/pmd/pmd/pull/2940): \[java] Catch additional TypeNotPresentExceptions / LinkageErrors
-*   scala
-    * [#2480](https://github.com/pmd/pmd/issues/2480): \[scala] Support CPD suppressions
-
+    *   [#2954](https://github.com/pmd/pmd/issues/2954): Create GitHub Action for PMD
+    *   [#3424](https://github.com/pmd/pmd/issues/3424): \[core] Migrate CLI to using GNU-style long options
+    *   [#3425](https://github.com/pmd/pmd/issues/3425): \[core] Add a `--version` CLI option
+    *   [#3593](https://github.com/pmd/pmd/issues/3593): \[core] Ant task fails with Java17
+    *   [#3635](https://github.com/pmd/pmd/issues/3635): \[ci] Update sample projects for regression tester
+*   java-bestpractices
+    *   [#3595](https://github.com/pmd/pmd/issues/3595): \[java] PrimitiveWrapperInstantiation: no violation on 'new Boolean(val)'
+    *   [#3613](https://github.com/pmd/pmd/issues/3613): \[java] ArrayIsStoredDirectly doesn't consider nested classes
+    *   [#3614](https://github.com/pmd/pmd/issues/3614): \[java] JUnitTestsShouldIncludeAssert doesn't consider nested classes
+    *   [#3618](https://github.com/pmd/pmd/issues/3618): \[java] UnusedFormalParameter doesn't consider anonymous classes
+    *   [#3630](https://github.com/pmd/pmd/issues/3630): \[java] MethodReturnsInternalArray doesn't consider anonymous classes
+*   java-design
+    *   [#3620](https://github.com/pmd/pmd/issues/3620): \[java] SingularField doesn't consider anonymous classes defined in non-private fields
+*   java-errorprone
+    *   [#3624](https://github.com/pmd/pmd/issues/3624): \[java] TestClassWithoutTestCases reports wrong classes in a file
+*   java-performance
+    *   [#3491](https://github.com/pmd/pmd/issues/3491): \[java] UselessStringValueOf: False positive when `valueOf(char [], int, int)` is used
 
 ### API Changes
 
-#### Deprecated API
+#### Command Line Interface
 
-*   {% jdoc !!java::lang.java.ast.ASTPackageDeclaration#getPackageNameImage() %},
-    {% jdoc !!java::lang.java.ast.ASTTypeParameter#getParameterName() %}
-    and the corresponding XPath attributes. In both cases they're replaced with a new method `getName`,
-    the attribute is `@Name`.
-*   {% jdoc !!java::lang.java.ast.ASTClassOrInterfaceBody#isAnonymousInnerClass() %},
-    and {% jdoc !!java::lang.java.ast.ASTClassOrInterfaceBody#isEnumChild() %},
-    refs [#905](https://github.com/pmd/pmd/issues/905)
+The command line options for PMD and CPD now use GNU-syle long options format. E.g. instead of `-rulesets` the
+preferred usage is now `--rulesets`. Alternatively one can still use the short option `-R`.
+Some options also have been renamed to a more consistent casing pattern at the same time
+(`--fail-on-violation` instead of `-failOnViolation`).
+The old single-dash options are still supported but are deprecated and will be removed with PMD 7.
+This change makes the command line interface more consistent within PMD and also less surprising
+compared to other cli tools.
 
-#### Internal API
+The changes in detail for PMD:
 
-Those APIs are not intended to be used by clients, and will be hidden or removed with PMD 7.0.0.
-You can identify them with the `@InternalApi` annotation. You'll also get a deprecation warning.
+|old option                     |new option|
+|-------------------------------|----------|
+| `-rulesets`                   | `--rulesets` (or `-R`) |
+| `-uri`                        | `--uri` |
+| `-dir`                        | `--dir` (or `-d`) |
+| `-filelist`                   | `--file-list` |
+| `-ignorelist`                 | `--ignore-list` |
+| `-format`                     | `--format` (or `-f`) |
+| `-debug`                      | `--debug` |
+| `-verbose`                    | `--verbose` |
+| `-help`                       | `--help` |
+| `-encoding`                   | `--encoding` |
+| `-threads`                    | `--threads` |
+| `-benchmark`                  | `--benchmark` |
+| `-stress`                     | `--stress` |
+| `-shortnames`                 | `--short-names` |
+| `-showsuppressed`             | `--show-suppressed` |
+| `-suppressmarker`             | `--suppress-marker` |
+| `-minimumpriority`            | `--minimum-priority` |
+| `-property`                   | `--property` |
+| `-reportfile`                 | `--report-file` |
+| `-force-language`             | `--force-language` |
+| `-auxclasspath`               | `--aux-classpath` |
+| `-failOnViolation`            | `--fail-on-violation` |
+| `--failOnViolation`           | `--fail-on-violation` |
+| `-norulesetcompatibility`     | `--no-ruleset-compatibility` |
+| `-cache`                      | `--cache` |
+| `-no-cache`                   | `--no-cache` |
 
-*   {% jdoc !!javascript::lang.ecmascript.Ecmascript3Handler %}
-*   {% jdoc !!javascript::lang.ecmascript.Ecmascript3Parser %}
-*   {% jdoc !!javascript::lang.ecmascript.ast.EcmascriptParser#parserOptions %}
-*   {% jdoc !!javascript::lang.ecmascript.ast.EcmascriptParser#getSuppressMap() %}
-*   {% jdoc !!core::lang.rule.ParametricRuleViolation %}
-*   {% jdoc !!core::lang.ParserOptions#suppressMarker %}
-*   {% jdoc !!modelica::lang.modelica.rule.ModelicaRuleViolationFactory %}
+The changes in detail for CPD:
 
+|old option             |new option|
+|-----------------------|----------|
+| `--failOnViolation`   | `--fail-on-violation` |
+| `-failOnViolation`    | `--fail-on-violation` |
+| `--filelist`          | `--file-list` |
 
 ### External Contributions
 
-*   [#2914](https://github.com/pmd/pmd/pull/2914): \[core] Include rule name in text renderer - [Gunther Schrijvers](https://github.com/GuntherSchrijvers)
-*   [#2925](https://github.com/pmd/pmd/pull/2925): Cleanup: Correct annotation array initializer indents from checkstyle #8083 - [Abhishek Kumar](https://github.com/Abhishek-kumar09)
-*   [#2929](https://github.com/pmd/pmd/pull/2929): \[scala] Add support for CPD-ON and CPD-OFF special comments - [Andy Robinson](https://github.com/andyrobinson)
-*   [#2936](https://github.com/pmd/pmd/pull/2936): \[java] (doc) Fix typo: "an accessor" not "a" - [Igor Moreno](https://github.com/igormoreno)
-*   [#2938](https://github.com/pmd/pmd/pull/2938): \[cs] CPD: fix issue where ignoring using directives could not be disabled - [Maikel Steneker](https://github.com/maikelsteneker)
-*   [#2945](https://github.com/pmd/pmd/pull/2945): \[cs] Add option to ignore sequences of literals - [Maikel Steneker](https://github.com/maikelsteneker)
+*   [#3600](https://github.com/pmd/pmd/pull/3600): \[core] Implement GNU-style long options and '--version' - [Yang](https://github.com/duanyang25)
+*   [#3612](https://github.com/pmd/pmd/pull/3612): \[java] Created fix for UselessStringValueOf false positive - [John Armgardt](https://github.com/johnra2)
+*   [#3648](https://github.com/pmd/pmd/pull/3648): \[doc] Rename Code Inspector to Codiga - [Julien Delange](https://github.com/juli1)
+
+### Stats
+* 80 commits
+* 23 closed tickets & PRs
+* Days since last release: 28
 
 {% endtocmaker %}
+

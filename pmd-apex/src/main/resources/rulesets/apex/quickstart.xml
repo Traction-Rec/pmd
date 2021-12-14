@@ -161,6 +161,8 @@
          <property name="cc_block_highlighting" value="false"/>
       </properties>
    </rule>
+<!--    <rule ref="category/apex/performance.xml/AvoidDebugStatements" /> -->
+<!--    <rule ref="category/apex/performance.xml/EagerlyLoadedDescribeSObjectResult" /> -->
 
    <!-- NAMING -->
    <rule ref="category/apex/codestyle.xml/ClassNamingConventions" message="Class names should begin with an uppercase character">
@@ -472,5 +474,7 @@
       </properties>
    </rule>
    <!-- <rule ref="category/apex/bestpractices.xml/UnusedLocalVariable"/> -->
+   <!-- <rule ref="category/apex/errorprone.xml/OverrideBothEqualsAndHashcode" /> -->
+   <!-- <rule ref="category/apex/errorprone.xml/InaccessibleAuraEnabledGetter" /> -->
 
 </ruleset>

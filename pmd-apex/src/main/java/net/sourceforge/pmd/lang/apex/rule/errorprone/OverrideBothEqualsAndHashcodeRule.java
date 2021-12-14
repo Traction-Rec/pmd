@@ -1,4 +1,4 @@
-/**
+/*
  * BSD-style license; for more info see http://pmd.sourceforge.net/license.html
  */
 
@@ -12,10 +12,12 @@ import net.sourceforge.pmd.lang.apex.rule.AbstractApexRule;
 
 public class OverrideBothEqualsAndHashcodeRule extends AbstractApexRule {
 
+    public OverrideBothEqualsAndHashcodeRule() {
+        addRuleChainVisit(ASTUserClass.class);
+    }
+
     @Override
     public Object visit(ASTUserClass node, Object data) {
-        super.visit(node, data);
-
         ApexNode<?> equalsNode = null;
         ApexNode<?> hashNode = null;
         for (ASTMethod method : node.findChildrenOfType(ASTMethod.class)) {
@@ -39,7 +41,7 @@ public class OverrideBothEqualsAndHashcodeRule extends AbstractApexRule {
         return data;
     }
 
-    private Boolean isEquals(ASTMethod node) {
+    private boolean isEquals(ASTMethod node) {
         int numParams = 0;
         String paramType = null;
         for (int ix = 0; ix < node.getNumChildren(); ix++) {
@@ -49,10 +51,10 @@ public class OverrideBothEqualsAndHashcodeRule extends AbstractApexRule {
                 paramType = ((ASTParameter) sn).getType();
             }
         }
-        return numParams == 1 && node.hasImageEqualTo("equals") && "Object".equalsIgnoreCase(paramType);
+        return numParams == 1 && "equals".equalsIgnoreCase(node.getImage()) && "Object".equalsIgnoreCase(paramType);
     }
 
-    private Boolean isHashCode(ASTMethod node) {
+    private boolean isHashCode(ASTMethod node) {
         int numParams = 0;
         for (int ix = 0; ix < node.getNumChildren(); ix++) {
             ApexNode<?> sn = node.getChild(ix);
@@ -61,6 +63,6 @@ public class OverrideBothEqualsAndHashcodeRule extends AbstractApexRule {
             }
         }
 
-        return numParams == 0 && node.hasImageEqualTo("hashCode");
+        return numParams == 0 && "hashCode".equalsIgnoreCase(node.getImage());
     }
 }

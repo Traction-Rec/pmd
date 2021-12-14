@@ -398,8 +398,16 @@ public class Foo extends Bar{
             specific kind (e.g. enum or interface). Each regex can be configured through
             properties.
 
-            By default this rule uses the standard Java naming convention (Pascal case),
-            and reports utility class names not ending with 'Util'.
+            By default this rule uses the standard Java naming convention (Pascal case).
+            
+            The rule can detect utility classes and enforce a different naming convention
+            on those. E.g. setting the property `utilityClassPattern` to
+            `[A-Z][a-zA-Z0-9]+(Utils?|Helper|Constants)` reports any utility class, whose name
+            does not end in "Util(s)", "Helper" or "Constants".
+            
+            For this rule, a utility class is defined as: a concrete class that does not
+            inherit from a super class or implement any interface and only has static fields
+            or methods.
         </description>
         <priority>1</priority>
         <example>
@@ -550,6 +558,7 @@ while (true) {  // preferred approach
     </rule>
 
     <rule name="DefaultPackage"
+          deprecated="true"
           language="java"
           since="3.4"
           message="Use explicit scoping instead of the default package private level"
@@ -558,6 +567,16 @@ while (true) {  // preferred approach
         <description>
 Use explicit scoping instead of accidental usage of default package private level.
 The rule allows methods and fields annotated with Guava's @VisibleForTesting and JUnit 5's annotations.
+
+This rule is deprecated since PMD 6.35.0. It assumes that any usage of package-access is accidental,
+and by doing so, prohibits using a really fundamental and useful feature of the language.
+
+To satisfy the rule, you have to make the member public even if it doesn't need to, or make it protected,
+which muddies your intent even more if you don't intend the class to be extended, and may be at odds with
+other rules like {% rule "java/codestyle/AvoidProtectedFieldInFinalClass" %}.
+
+The rule {% rule "java/codestyle/CommentDefaultAccessModifier" %} should be used instead. This rule flags
+the same thing, but has an escape hatch.
         </description>
         <priority>3</priority>
         <properties>
@@ -593,10 +612,14 @@ or MethodDeclaration[@PackagePrivate= true()]
           language="java"
           since="0.5"
           message="Avoid importing anything from the package 'java.lang'"
+          deprecated="true"
           class="net.sourceforge.pmd.lang.java.rule.codestyle.DontImportJavaLangRule"
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_codestyle.html#dontimportjavalang">
         <description>
 Avoid importing anything from the package 'java.lang'.  These classes are automatically imported (JLS 7.5.3).
+
+This rule is deprecated since PMD 6.34.0. Use the rule {% rule "java/codestyle/UnnecessaryImport" %}
+from category codestyle instead.
         </description>
         <priority>4</priority>
         <example>
@@ -618,10 +641,14 @@ public class Foo {}
           language="java"
           since="0.5"
           message="Avoid duplicate imports such as ''{0}''"
+          deprecated="true"
           class="net.sourceforge.pmd.lang.java.rule.codestyle.DuplicateImportsRule"
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_codestyle.html#duplicateimports">
         <description>
 Duplicate or overlapping import statements should be avoided.
+
+This rule is deprecated since PMD 6.34.0. Use the rule {% rule "java/codestyle/UnnecessaryImport" %}
+from category codestyle instead.
         </description>
         <priority>4</priority>
         <example>
@@ -1945,6 +1972,37 @@ public class Foo {
     private List list2;             // More appropriate given import of 'java.util.List'
 }
 ]]>
+        </example>
+    </rule>
+
+    <rule name="UnnecessaryImport"
+          language="java"
+          since="6.34.0"
+          message="Unnecessary import ''{0}''"
+          class="net.sourceforge.pmd.lang.java.rule.codestyle.UnnecessaryImportRule"
+          typeResolution="true"
+          externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_codestyle.html#unnecessaryimport">
+        <description>
+            Reports import statements that can be removed. They are either unused,
+            duplicated, or the members they import are already implicitly in scope,
+            because they're in java.lang, or the current package.
+        </description>
+        <priority>4</priority>
+        <example>
+<![CDATA[
+            import java.io.File;            // not used, can be removed
+            import java.util.Collections;   // used below
+            import java.util.*;             // so this one is not used
+
+            import java.lang.Object;        // imports from java.lang, unnecessary
+            import java.lang.Object;        // duplicate, unnecessary
+
+            public class Foo {
+                static Object emptyList() {
+                    return Collections.emptyList();
+                }
+            }
+            ]]>
         </example>
     </rule>
 
