@@ -8,12 +8,12 @@ import net.sourceforge.pmd.annotation.InternalApi;
 import net.sourceforge.pmd.lang.ast.RootNode;
 import net.sourceforge.pmd.lang.ast.SourceCodePositioner;
 
-import apex.jorje.semantic.ast.AstNode;
+import apex.jorje.semantic.ast.compilation.Compilation;
 import apex.jorje.services.Version;
 
 @Deprecated
 @InternalApi
-public abstract class ApexRootNode<T extends AstNode> extends AbstractApexNode<T> implements RootNode {
+public abstract class ApexRootNode<T extends Compilation> extends AbstractApexNode<T> implements RootNode {
     @Deprecated
     @InternalApi
     public ApexRootNode(T node) {
@@ -46,7 +46,11 @@ public abstract class ApexRootNode<T extends AstNode> extends AbstractApexNode<T
      * Use {@link Version} to compare, e.g.
      * {@code node.getApexVersion() >= Version.V176.getExternal()}
      * @return the apex version
+     * @deprecated for removal. The version returned is always Version.CURRENT, as the apex compiler integration
+     *      doesn't use additional information which Apex version actually is used. Therefore, this method can't be
+     *      used to determine the Apex version of the project that is being analyzed.
      */
+    @Deprecated
     public double getApexVersion() {
         return node.getDefiningType().getCodeUnitDetails().getVersion().getExternal();
     }

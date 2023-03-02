@@ -14,15 +14,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
 import net.sourceforge.pmd.lang.ast.Node;
 import net.sourceforge.pmd.lang.ast.xpath.internal.FileNameXPathFunction;
-
-import apex.jorje.semantic.ast.compilation.Compilation;
+import net.sourceforge.pmd.util.IOUtil;
 
 public class ApexParserTest extends ApexParserTestBase {
 
@@ -34,7 +31,7 @@ public class ApexParserTest extends ApexParserTestBase {
             + "        \n" + "    }\n" + "}";
 
         // Exercise
-        ApexNode<Compilation> rootNode = parse(code);
+        ApexNode<?> rootNode = parse(code);
 
         // Verify
         List<ASTMethod> methods = rootNode.findDescendantsOfType(ASTMethod.class);
@@ -60,18 +57,18 @@ public class ApexParserTest extends ApexParserTestBase {
 
     @Test
     public void verifyLineColumnNumbers() {
-        ApexNode<Compilation> rootNode = parse(testCodeForLineNumbers);
+        ApexNode<?> rootNode = parse(testCodeForLineNumbers);
         assertLineNumbersForTestCode(rootNode);
     }
 
     @Test
     public void verifyLineColumnNumbersWithWindowsLineEndings() {
         String windowsLineEndings = testCodeForLineNumbers.replaceAll(" \n", "\r\n");
-        ApexNode<Compilation> rootNode = parse(windowsLineEndings);
+        ApexNode<?> rootNode = parse(windowsLineEndings);
         assertLineNumbersForTestCode(rootNode);
     }
 
-    private void assertLineNumbersForTestCode(ApexNode<Compilation> rootNode) {
+    private void assertLineNumbersForTestCode(ApexNode<?> rootNode) {
         // whole source code, well from the beginning of the class
         // name Modifier of the class - doesn't work. This node just
         // sees the identifier ("SimpleClass")
@@ -108,7 +105,7 @@ public class ApexParserTest extends ApexParserTestBase {
                 + "    }\n" // line 5
                 + "}\n"; // line 6
 
-        ApexNode<Compilation> rootNode = parse(code);
+        ApexNode<?> rootNode = parse(code);
 
         Node method1 = rootNode.getChild(1);
         assertEquals("Wrong begin line", 2, method1.getBeginLine());
@@ -130,7 +127,7 @@ public class ApexParserTest extends ApexParserTestBase {
             + "    }\n" // line 5
             + "}\n"; // line 6
 
-        ApexNode<Compilation> root = parse(code);
+        ApexNode<?> root = parse(code);
 
         assertThat(root, instanceOf(ASTUserClass.class));
         ApexNode<?> comment = root.getChild(0);
@@ -154,8 +151,8 @@ public class ApexParserTest extends ApexParserTestBase {
 
         for (File file : fList) {
             if (file.isFile() && file.getName().endsWith(".cls")) {
-                String sourceCode = FileUtils.readFileToString(file, StandardCharsets.UTF_8);
-                ApexNode<Compilation> rootNode = parse(sourceCode);
+                String sourceCode = IOUtil.readFileToString(file, StandardCharsets.UTF_8);
+                ApexNode<?> rootNode = parse(sourceCode);
                 Assert.assertNotNull(rootNode);
             }
         }
@@ -167,9 +164,9 @@ public class ApexParserTest extends ApexParserTestBase {
      */
     @Test
     public void parseInheritedSharingClass() throws IOException {
-        String source = IOUtils.toString(ApexParserTest.class.getResourceAsStream("InheritedSharing.cls"),
+        String source = IOUtil.readToString(ApexParserTest.class.getResourceAsStream("InheritedSharing.cls"),
                 StandardCharsets.UTF_8);
-        ApexNode<Compilation> rootNode = parse(source);
+        ApexNode<?> rootNode = parse(source);
         Assert.assertNotNull(rootNode);
     }
 
@@ -180,9 +177,9 @@ public class ApexParserTest extends ApexParserTestBase {
      */
     @Test
     public void stackOverflowDuringClassParsing() throws Exception {
-        String source = IOUtils.toString(ApexParserTest.class.getResourceAsStream("StackOverflowClass.cls"),
+        String source = IOUtil.readToString(ApexParserTest.class.getResourceAsStream("StackOverflowClass.cls"),
                 StandardCharsets.UTF_8);
-        ApexNode<Compilation> rootNode = parse(source);
+        ApexNode<?> rootNode = parse(source);
         Assert.assertNotNull(rootNode);
 
         int count = visitPosition(rootNode, 0);
@@ -191,10 +188,10 @@ public class ApexParserTest extends ApexParserTestBase {
 
     @Test
     public void verifyLineColumnNumbersInnerClasses() throws Exception {
-        String source = IOUtils.toString(ApexParserTest.class.getResourceAsStream("InnerClassLocations.cls"),
+        String source = IOUtil.readToString(ApexParserTest.class.getResourceAsStream("InnerClassLocations.cls"),
                 StandardCharsets.UTF_8);
         source = source.replaceAll("\r\n", "\n");
-        ApexNode<Compilation> rootNode = parse(source);
+        ApexNode<?> rootNode = parse(source);
         Assert.assertNotNull(rootNode);
 
         visitPosition(rootNode, 0);

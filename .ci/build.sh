@@ -29,15 +29,23 @@ function build() {
 
     if pmd_ci_utils_is_fork_or_pull_request; then
         pmd_ci_log_group_start "Build with mvnw"
-            ./mvnw clean verify --show-version --errors --batch-mode --no-transfer-progress "${PMD_MAVEN_EXTRA_OPTS[@]}"
+            ./mvnw clean install --show-version --errors --batch-mode --no-transfer-progress "${PMD_MAVEN_EXTRA_OPTS[@]}"
         pmd_ci_log_group_end
 
-        # Danger is executed only on the linux runner
-        if [ "$(pmd_ci_utils_get_os)" = "linux" ]; then
-            pmd_ci_log_group_start "Executing danger"
-                regression_tester_setup_ci
-                regression_tester_executeDanger
-            pmd_ci_log_group_end
+        # Execute danger and dogfood only for pull requests in our own repository
+        if [[ "${PMD_CI_IS_FORK}" = "false" && -n "${PMD_CI_PULL_REQUEST_NUMBER}" ]]; then
+          # Danger is executed only on the linux runner
+          if [ "$(pmd_ci_utils_get_os)" = "linux" ]; then
+              pmd_ci_log_group_start "Executing danger"
+                  regression_tester_setup_ci
+                  regression_tester_executeDanger
+              pmd_ci_log_group_end
+
+              # also run dogfood for PRs (only on linux)
+              pmd_ci_log_group_start "Executing PMD dogfood test with ${PMD_CI_MAVEN_PROJECT_VERSION}"
+                  pmd_ci_dogfood
+              pmd_ci_log_group_end
+          fi
         fi
 
         exit 0
@@ -63,6 +71,18 @@ function build() {
         pmd_ci_maven_setup_settings
     pmd_ci_log_group_end
 
+    if [ "${PMD_CI_BRANCH}" = "experimental-apex-parser" ]; then
+        pmd_ci_log_group_start "Build with mvnw"
+            ./mvnw clean install --show-version --errors --batch-mode --no-transfer-progress "${PMD_MAVEN_EXTRA_OPTS[@]}"
+        pmd_ci_log_group_end
+
+        pmd_ci_log_group_start "Creating new baseline for regression tester"
+            regression_tester_setup_ci
+            regression_tester_uploadBaseline
+        pmd_ci_log_group_end
+        exit 0
+    fi
+
     pmd_ci_log_group_start "Build and Deploy"
         pmd_ci_build_run
         pmd_ci_deploy_build_artifacts
@@ -85,23 +105,13 @@ function build() {
         regression_tester_uploadBaseline
     pmd_ci_log_group_end
 
+    #
+    # everything from here runs only on snapshots, not on release builds
+    #
     if pmd_ci_maven_isSnapshotBuild; then
-    if [ "${PMD_CI_MAVEN_PROJECT_VERSION}" != "7.0.0-SNAPSHOT" ]; then
-        pmd_ci_log_group_start "Executing PMD dogfood test with ${PMD_CI_MAVEN_PROJECT_VERSION}"
-            ./mvnw versions:set -DnewVersion="${PMD_CI_MAVEN_PROJECT_VERSION}-dogfood" -DgenerateBackupPoms=false
-            sed -i 's/<version>[0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}.*<\/version>\( *<!-- pmd.dogfood.version -->\)/<version>'"${PMD_CI_MAVEN_PROJECT_VERSION}"'<\/version>\1/' pom.xml
-            ./mvnw verify --show-version --errors --batch-mode --no-transfer-progress "${PMD_MAVEN_EXTRA_OPTS[@]}" \
-                -DskipTests \
-                -Dmaven.javadoc.skip=true \
-                -Dmaven.source.skip=true \
-                -Dcheckstyle.skip=true
-            ./mvnw versions:set -DnewVersion="${PMD_CI_MAVEN_PROJECT_VERSION}" -DgenerateBackupPoms=false
-            git checkout -- pom.xml
-        pmd_ci_log_group_end
-    else
-        # current maven-pmd-plugin is not compatible with PMD 7 yet.
-        pmd_ci_log_info "Skipping PMD dogfood test with ${PMD_CI_MAVEN_PROJECT_VERSION}"
-    fi
+    pmd_ci_log_group_start "Executing PMD dogfood test with ${PMD_CI_MAVEN_PROJECT_VERSION}"
+        pmd_ci_dogfood
+    pmd_ci_log_group_end
 
     pmd_ci_log_group_start "Executing build with sonar"
         # Note: Sonar also needs GITHUB_TOKEN (!)
@@ -213,7 +223,7 @@ function pmd_ci_build_and_upload_doc() {
         pmd_code_createSymlink "${PMD_CI_MAVEN_PROJECT_VERSION}" "latest"
         # remove old doc and point to the new version
         pmd_code_removeDocumentation "${PMD_CI_MAVEN_PROJECT_VERSION}-SNAPSHOT"
-        pmd_code_createSymlink "${PMD_CI_MAVEN_PROJECT_VERSION}" "${PMD_CI_MAVEN_PROJECT_VERSION}-SNAPSHOT"
+        pmd_code_createSymlink "${PMD_CI_MAVEN_PROJECT_VERSION}" "pmd-doc-${PMD_CI_MAVEN_PROJECT_VERSION}-SNAPSHOT"
         # remove old javadoc
         pmd_code_removeJavadoc "${PMD_CI_MAVEN_PROJECT_VERSION}-SNAPSHOT"
 
@@ -243,6 +253,27 @@ ${rendered_release_notes}"
         publish_release_documentation_github
         pmd_ci_sourceforge_rsyncSnapshotDocumentation "${PMD_CI_MAVEN_PROJECT_VERSION}" "pmd-${PMD_CI_MAVEN_PROJECT_VERSION}"
     fi
+}
+
+#
+# Runs the dogfood ruleset with the currently built pmd against itself
+#
+function pmd_ci_dogfood() {
+    local mpmdVersion=()
+    ./mvnw versions:set -DnewVersion="${PMD_CI_MAVEN_PROJECT_VERSION}-dogfood" -DgenerateBackupPoms=false
+    sed -i 's/<version>[0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}.*<\/version>\( *<!-- pmd.dogfood.version -->\)/<version>'"${PMD_CI_MAVEN_PROJECT_VERSION}"'<\/version>\1/' pom.xml
+    if [ "${PMD_CI_MAVEN_PROJECT_VERSION}" = "7.0.0-SNAPSHOT" ]; then
+        sed -i 's/pmd-dogfood-config\.xml/pmd-dogfood-config7.xml/' pom.xml
+        mpmdVersion=(-Denforcer.skip=true -Dpmd.plugin.version=3.20.1-pmd-7-SNAPSHOT)
+    fi
+    ./mvnw verify --show-version --errors --batch-mode --no-transfer-progress "${PMD_MAVEN_EXTRA_OPTS[@]}" \
+        "${mpmdVersion[@]}" \
+        -DskipTests \
+        -Dmaven.javadoc.skip=true \
+        -Dmaven.source.skip=true \
+        -Dcheckstyle.skip=true
+    ./mvnw versions:set -DnewVersion="${PMD_CI_MAVEN_PROJECT_VERSION}" -DgenerateBackupPoms=false
+    git checkout -- pom.xml
 }
 
 build

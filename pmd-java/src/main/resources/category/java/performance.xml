@@ -17,7 +17,7 @@ Rules that flag suboptimal code.
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_performance.html#addemptystring">
         <description>
 The conversion of literals to strings by concatenating them with empty strings is inefficient.
-It is much better to use one of the type-specific toString() methods instead.
+It is much better to use one of the type-specific `toString()` methods instead or `String.valueOf()`.
         </description>
         <priority>3</priority>
         <properties>
@@ -26,6 +26,12 @@ It is much better to use one of the type-specific toString() methods instead.
                 <value>
 <![CDATA[
 //AdditiveExpression/PrimaryExpression/PrimaryPrefix/Literal[@Image='""' and not(ancestor::Annotation)]
+|
+//AdditiveExpression/PrimaryExpression/PrimaryPrefix/Name
+  [@Image = (//FieldDeclaration[@Final = true()]|ancestor::MethodDeclaration//LocalVariableDeclaration[@Final = true()])
+                /VariableDeclarator[@Initializer = true()]
+                    [VariableInitializer/Expression/PrimaryExpression/PrimaryPrefix/Literal[@Image='""']]
+                    /VariableDeclaratorId/@Name]
 ]]>
                 </value>
             </property>
@@ -66,7 +72,12 @@ sb.append('a');     // use this instead
           class="net.sourceforge.pmd.lang.rule.XPathRule"
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_performance.html#avoidarrayloops">
         <description>
-Instead of manually copying data between two arrays, use the efficient Arrays.copyOf or System.arraycopy method instead.
+Instead of manually copying data between two arrays, use the more efficient `Arrays.copyOf`
+or `System.arraycopy` method instead.
+
+To copy only part of the array, use `Arrays.copyOfRange` or `System.arraycopy`.
+
+If you want to copy/move elements inside the _same_ array (e.g. shift the elements), use `System.arraycopy`.
         </description>
         <priority>3</priority>
         <properties>
@@ -74,41 +85,69 @@ Instead of manually copying data between two arrays, use the efficient Arrays.co
             <property name="xpath">
                 <value>
 <![CDATA[
-//Statement[(ForStatement or WhileStatement) and
-count(*//AssignmentOperator[@Image = '='])=1
-and
-*/Statement
-[
-./Block/BlockStatement/Statement/StatementExpression/PrimaryExpression
-/PrimaryPrefix/Name/../../PrimarySuffix/Expression
-[(PrimaryExpression or AdditiveExpression) and count
-(.//PrimaryPrefix/Name)=1]//PrimaryPrefix/Name/@Image
-and
-./Block/BlockStatement/Statement/StatementExpression/Expression/PrimaryExpression
-/PrimaryPrefix/Name/../../PrimarySuffix[count
-(..//PrimarySuffix)=1]/Expression[(PrimaryExpression
-or AdditiveExpression) and count(.//PrimaryPrefix/Name)=1]
-//PrimaryPrefix/Name/@Image
-]]
+//Statement
+  [(ForStatement or WhileStatement or DoStatement)]
+  [count(*/Statement//AssignmentOperator[@Image = '='])=1]
+  [*/Statement/Block/BlockStatement/Statement
+        /StatementExpression[AssignmentOperator[@Image = '=']]
+        (: LHS - left hand side :)
+        [PrimaryExpression[count(PrimarySuffix) = 1]/PrimarySuffix[@ArrayDereference = true()]
+        /Expression[PrimaryExpression or AdditiveExpression]
+                   [count(.//PrimaryPrefix/Name) = 1 or
+                    (count(.//PrimaryPrefix/Name) = 2 and .//PrimaryPrefix/Name/@Image = (ancestor::MethodDeclaration|//FieldDeclaration)//VariableDeclarator[VariableInitializer//Literal]/VariableDeclaratorId[@Final = true()]/@Name)
+                   ]
+        //PrimaryPrefix/Name/@Image]
+        (: RHS - right hand side :)
+        [Expression/PrimaryExpression/PrimarySuffix[@ArrayDereference = true()][count(..//PrimarySuffix) = 1]
+        /Expression[PrimaryExpression or AdditiveExpression]
+                   [count(.//PrimaryPrefix/Name) = 1 or
+                    (count(.//PrimaryPrefix/Name) = 2 and .//PrimaryPrefix/Name/@Image = (ancestor::MethodDeclaration|//FieldDeclaration)//VariableDeclarator[VariableInitializer//Literal]/VariableDeclaratorId[@Final = true()]/@Name)
+                   ]
+        //PrimaryPrefix/Name/@Image]
+  ]
 ]]>
                 </value>
             </property>
         </properties>
         <example>
 <![CDATA[
-public class Test {
-    public void bar() {
+class Scratch {
+    void copy_a_to_b() {
         int[] a = new int[10];
         int[] b = new int[10];
-        for (int i=0;i<10;i++) {
-            b[i]=a[i];
+        for (int i = 0; i < a.length; i++) {
+            b[i] = a[i];
         }
+        // equivalent
+        b = Arrays.copyOf(a, a.length);
+        // equivalent
+        System.arraycopy(a, 0, b, 0, a.length);
 
         int[] c = new int[10];
-        // this will trigger the rule
-        for (int i=0;i<10;i++) {
-            b[i]=a[c[i]];
+        // this will not trigger the rule
+        for (int i = 0; i < c.length; i++) {
+            b[i] = a[c[i]];
         }
+    }
+}
+]]>
+        </example>
+        <example>
+<![CDATA[
+class Scratch {
+    void shift_left(int[] a) {
+        for (int i = 0; i < a.length - 1; i++) {
+            a[i] = a[i + 1];
+        }
+        // equivalent
+        System.arraycopy(a, 1, a, 0, a.length - 1);
+    }
+    void shift_right(int[] a) {
+        for (int i = a.length - 1; i > 0; i--) {
+            a[i] = a[i - 1];
+        }
+        // equivalent
+        System.arraycopy(a, 0, a, 1, a.length - 1);
     }
 }
 ]]>
@@ -278,7 +317,8 @@ public class Something {
           deprecated="true"
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_performance.html#avoidusingshorttype">
         <description>
-Note: this rule is deprecated, as its rationale does not hold.
+_Note:_ This rule is deprecated since PMD 6.31.0 and will be removed with PMD 7.0.0.
+There is no planned replacement. This rule is deprecated, as its rationale does not hold.
 
 Java uses the 'short' type to reduce memory usage, not to optimize calculation. In fact, the JVM does not have any
 arithmetic capabilities for the short type: the JVM must convert the short into an int, do the proper calculation
@@ -353,7 +393,8 @@ bi4 = new BigInteger(0);                 // reference BigInteger.ZERO instead
 Avoid instantiating Boolean objects; you can reference Boolean.TRUE, Boolean.FALSE, or call Boolean.valueOf() instead.
 Note that new Boolean() is deprecated since JDK 9 for that reason.
 
-Deprecated since PMD 6.37.0, use {% rule java/bestpractices/PrimitiveWrapperInstantiation %} instead.
+_Note:_ This rule is deprecated since PMD 6.37.0 and will be removed with PMD 7.0.0.
+Use {% rule java/bestpractices/PrimitiveWrapperInstantiation %} instead.
         </description>
         <priority>2</priority>
         <example>
@@ -377,7 +418,8 @@ Calling new Byte() causes memory allocation that can be avoided by the static By
 It makes use of an internal cache that recycles earlier instances making it more memory efficient.
 Note that new Byte() is deprecated since JDK 9 for that reason.
 
-Deprecated since PMD 6.37.0, use {% rule java/bestpractices/PrimitiveWrapperInstantiation %} instead.
+_Note:_ This rule is deprecated since PMD 6.37.0 and will be removed with PMD 7.0.0.
+Use {% rule java/bestpractices/PrimitiveWrapperInstantiation %} instead.
         </description>
         <priority>2</priority>
         <properties>
@@ -558,7 +600,8 @@ Calling new Integer() causes memory allocation that can be avoided by the static
 It makes use of an internal cache that recycles earlier instances making it more memory efficient.
 Note that new Integer() is deprecated since JDK 9 for that reason.
 
-Deprecated since PMD 6.37.0, use {% rule java/bestpractices/PrimitiveWrapperInstantiation %} instead.
+_Note:_ This rule is deprecated since PMD 6.37.0 and will be removed with PMD 7.0.0.
+Use {% rule java/bestpractices/PrimitiveWrapperInstantiation %} instead.
         </description>
         <priority>2</priority>
         <properties>
@@ -595,7 +638,8 @@ Calling new Long() causes memory allocation that can be avoided by the static Lo
 It makes use of an internal cache that recycles earlier instances making it more memory efficient.
 Note that new Long() is deprecated since JDK 9 for that reason.
 
-Deprecated since PMD 6.37.0, use {% rule java/bestpractices/PrimitiveWrapperInstantiation %} instead.
+_Note:_ This rule is deprecated since PMD 6.37.0 and will be removed with PMD 7.0.0.
+Use {% rule java/bestpractices/PrimitiveWrapperInstantiation %} instead.
         </description>
         <priority>2</priority>
         <properties>
@@ -714,7 +758,8 @@ public class C {
           deprecated="true"
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_performance.html#simplifystartswith">
         <description>
-Note: this rule is deprecated for removal, as the optimization is insignificant.
+_Note:_ This rule is deprecated since PMD 6.31.0 and will be removed with PMD 7.0.0. There is no planned replacement.
+The rule is deprecated for removal, as the optimization is insignificant.
 
 Calls to `string.startsWith("x")` with a string literal of length 1 can be rewritten using `string.charAt(0)`,
 at the expense of some readability. To prevent `IndexOutOfBoundsException` being thrown by the `charAt` method,
@@ -769,7 +814,8 @@ Calling new Short() causes memory allocation that can be avoided by the static S
 It makes use of an internal cache that recycles earlier instances making it more memory efficient.
 Note that new Short() is deprecated since JDK 9 for that reason.
 
-Deprecated since PMD 6.37.0, use {% rule java/bestpractices/PrimitiveWrapperInstantiation %} instead.
+_Note:_ This rule is deprecated since PMD 6.37.0 and will be removed with PMD 7.0.0.
+Use {% rule java/bestpractices/PrimitiveWrapperInstantiation %} instead.
         </description>
         <priority>2</priority>
         <properties>
@@ -838,8 +884,8 @@ private String baz() {
           externalInfoUrl="${pmd.website.baseurl}/pmd_rules_java_performance.html#toofewbranchesforaswitchstatement">
         <description>
 Switch statements are intended to be used to support complex branching behaviour. Using a switch for only a few
-cases is ill-advised, since switches are not as easy to understand as if-then statements. In these cases use the
-if-then statement to increase code readability.
+cases is ill-advised, since switches are not as easy to understand as if-else statements. In these cases use the
+if-else statement to increase code readability.
         </description>
         <priority>3</priority>
         <properties>
@@ -885,7 +931,9 @@ Most wrapper classes provide static conversion methods that avoid the need to cr
 just to create the primitive forms. Using these avoids the cost of creating objects that also need to be
 garbage-collected later.
 
-Deprecated since PMD 6.37.0. The planned replacement is not expected before PMD 7.0.0.
+_Note:_ This rule is deprecated since PMD 6.37.0 and will be removed with PMD 7.0.0.
+The planned replacement is not expected before PMD 7.0.0. In PMD 7 the new rule
+`UnnecessaryBoxing` can be used instead.
         </description>
         <priority>3</priority>
         <example>
@@ -922,16 +970,15 @@ ArrayList is a much better Collection implementation than Vector if thread-safe 
             <property name="version" value="2.0"/>
             <property name="xpath">
                 <value>
-<![CDATA[
-//CompilationUnit[not(ImportDeclaration) or ImportDeclaration[@ImportedName='java.util.Vector']]
-  //AllocationExpression/ClassOrInterfaceType
-    [@Image='Vector' or @Image='java.util.Vector']
+                    <![CDATA[
+//AllocationExpression/ClassOrInterfaceType[pmd-java:typeIsExactly('java.util.Vector')]
 ]]>
                 </value>
             </property>
         </properties>
         <example>
 <![CDATA[
+import java.util.*;
 public class SimpleTest extends TestCase {
     public void testX() {
     Collection c1 = new Vector();
@@ -968,7 +1015,14 @@ You must use `new ArrayList<>(Arrays.asList(...))` if that is inconvenient for y
 <![CDATA[
 //Statement/ForStatement
     [not(.//IfStatement)]
+    [count(Statement//StatementExpression)=1]
     [@Foreach = true() or ForInit//VariableInitializer//Literal[@IntLiteral= true() and @Image='0']]
+    (: skip primitive types :)
+    [@Foreach = true() and Expression[pmd-java:typeIs('java.lang.Object[]')]
+        or Expression/RelationalExpression/PrimaryExpression/PrimaryPrefix/Name[substring-before(@Image, '.length') =
+           ancestor::MethodDeclaration[1]//VariableDeclaratorId[pmd-java:typeIs('java.lang.Object[]')]
+           /@Name]
+    ]
     //StatementExpression
       [PrimaryExpression
         [PrimaryPrefix/Name
@@ -998,6 +1052,8 @@ You must use `new ArrayList<>(Arrays.asList(...))` if that is inconvenient for y
                 PrimaryPrefix/Name/@Image = ancestor::MethodDeclaration[1]//FormalParameter/VariableDeclaratorId[@ArrayType=true()]/@Name
                 and PrimarySuffix/Expression/PrimaryExpression/PrimaryPrefix/Name
             ]
+            (: ignore method calls :)
+            [not(PrimarySuffix/Arguments)]
         ]
       ]
 ]]>
@@ -1009,12 +1065,14 @@ You must use `new ArrayList<>(Arrays.asList(...))` if that is inconvenient for y
 public class Test {
     public void foo(Integer[] ints) {
         // could just use Arrays.asList(ints)
-        List<Integer> l= new ArrayList<>(100);
-        for (int i=0; i< 100; i++) {
+        List<Integer> l = new ArrayList<>(100);
+        for (int i = 0; i < ints.length; i++) {
             l.add(ints[i]);
         }
-        for (int i=0; i< 100; i++) {
-            l.add(a[i].toString()); // won't trigger the rule
+
+        List<Integer> anotherList = new ArrayList<>();
+        for (int i = 0; i < ints.length; i++) {
+            anotherList.add(ints[i].toString()); // won't trigger the rule
         }
     }
 }
@@ -1138,13 +1196,22 @@ threadsafe StringBuffer is recommended to avoid this.
         <example>
 <![CDATA[
 public class Foo {
-    void bar() {
-        String a;
-        a = "foo";
-        a += " bar";
-        // better would be:
-        // StringBuilder a = new StringBuilder("foo");
-        // a.append(" bar");
+    String inefficientConcatenation() {
+        String result = "";
+        for (int i = 0; i < 10; i++) {
+            // warning: this concatenation will create one new StringBuilder per iteration
+            result += getStringFromSomeWhere(i);
+        }
+        return result;
+    }
+
+    String efficientConcatenation() {
+        // better would be to use one StringBuilder for the entire loop
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < 10; i++) {
+            result.append(getStringFromSomeWhere(i));
+        }
+        return result.toString();
     }
 }
 ]]>

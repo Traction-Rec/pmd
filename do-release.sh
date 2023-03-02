@@ -15,17 +15,18 @@ if [ ! -f pom.xml ] || [ ! -d ../pmd.github.io ]; then
     exit 1
 fi
 
-LAST_VERSION=
-RELEASE_VERSION=
-DEVELOPMENT_VERSION=
 CURRENT_BRANCH=
 
 echo "-------------------------------------------"
 echo "Releasing PMD"
 echo "-------------------------------------------"
 
-CURRENT_VERSION=$(./mvnw org.apache.maven.plugins:maven-help-plugin:3.2.0:evaluate -Dexpression=project.version -q -DforceStdout)
-RELEASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
+# allow to override the release version, e.g. via "RELEASE_VERSION=7.0.0-rc1 ./do-release.sh"
+if [ "$RELEASE_VERSION" = "" ]; then
+    CURRENT_VERSION=$(./mvnw org.apache.maven.plugins:maven-help-plugin:3.2.0:evaluate -Dexpression=project.version -q -DforceStdout)
+    RELEASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
+fi
+
 MAJOR=$(echo "$RELEASE_VERSION" | cut -d . -f 1)
 MINOR=$(echo "$RELEASE_VERSION" | cut -d . -f 2)
 PATCH=$(echo "$RELEASE_VERSION" | cut -d . -f 3)
@@ -41,15 +42,16 @@ else
     LAST_MINOR="${MINOR}"
     LAST_PATCH=$(("${PATCH}" - 1))
 fi
-LAST_VERSION="$MAJOR.$LAST_MINOR.$LAST_PATCH"
-DEVELOPMENT_VERSION="$MAJOR.$NEXT_MINOR.$NEXT_PATCH"
-DEVELOPMENT_VERSION="${DEVELOPMENT_VERSION}-SNAPSHOT"
 
-# allow to override the next version, e.g. via "NEXT_VERSION=7.0.0 ./do-release.sh"
-if [ "$NEXT_VERSION" != "" ]; then
-    DEVELOPMENT_VERSION="${NEXT_VERSION}-SNAPSHOT"
+# allow to override the next version, e.g. via "DEVELOPMENT_VERSION=7.0.0-SNAPSHOT ./do-release.sh"
+if [ "$DEVELOPMENT_VERSION" = "" ]; then
+    DEVELOPMENT_VERSION="$MAJOR.$NEXT_MINOR.$NEXT_PATCH-SNAPSHOT"
 fi
 
+# allow to override the last version, e.g. via "LAST_VERSION=6.55.0 ./do-release.sh"
+if [ "$LAST_VERSION" = "" ]; then
+    LAST_VERSION="$MAJOR.$LAST_MINOR.$LAST_PATCH"
+fi
 
 # http://stackoverflow.com/questions/1593051/how-to-programmatically-determine-the-current-checked-out-git-branch
 CURRENT_BRANCH=$(git symbolic-ref -q HEAD)
@@ -71,6 +73,14 @@ export LAST_VERSION
 export RELEASE_VERSION
 export DEVELOPMENT_VERSION
 export CURRENT_BRANCH
+
+# check for SNAPSHOT version of pmd.build-tools.version
+BUILD_TOOLS_VERSION=$(./mvnw org.apache.maven.plugins:maven-help-plugin:3.2.0:evaluate -Dexpression=pmd.build-tools.version -q -DforceStdout)
+BUILD_TOOLS_VERSION_RELEASE=${BUILD_TOOLS_VERSION%-SNAPSHOT}
+if [ "${BUILD_TOOLS_VERSION}" != "${BUILD_TOOLS_VERSION_RELEASE}" ]; then
+  echo "Error: version pmd.build-tools.version is ${BUILD_TOOLS_VERSION} - snapshot is not allowed"
+  exit 1
+fi
 
 RELEASE_RULESET="pmd-core/src/main/resources/rulesets/releases/${RELEASE_VERSION//\./}.xml"
 
@@ -108,7 +118,7 @@ echo "* Days since last release: $(( ( $(date +%s) - $(git log --max-count=1 --f
 )
 
 TEMP_RELEASE_NOTES=$(cat docs/pages/release_notes.md)
-TEMP_RELEASE_NOTES=${TEMP_RELEASE_NOTES/\{\% endtocmaker \%\}/$STATS$'\n'$'\n'\{\% endtocmaker \%\}$'\n'}
+TEMP_RELEASE_NOTES=${TEMP_RELEASE_NOTES/\{\% endtocmaker \%\}/${STATS//\&/\\\&}$'\n'$'\n'\{\% endtocmaker \%\}$'\n'}
 echo "${TEMP_RELEASE_NOTES}" > docs/pages/release_notes.md
 
 echo
@@ -221,7 +231,7 @@ This is a {{ site.pmd.release_type }} release.
 
 EOF
 
-git commit -a -m "Prepare next development version"
+git commit -a -m "Prepare next development version [skip ci]"
 git push origin "${CURRENT_BRANCH}"
 ./mvnw -B release:clean
 echo

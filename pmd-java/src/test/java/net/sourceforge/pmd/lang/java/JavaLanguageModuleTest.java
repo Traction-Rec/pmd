@@ -26,10 +26,10 @@ public class JavaLanguageModuleTest {
 
     @Test
     public void previewVersionShouldBeGreaterThanNonPreview() {
-        LanguageVersion java16 = javaLanguage.getVersion("16");
-        LanguageVersion java16p = javaLanguage.getVersion("16-preview");
+        LanguageVersion java20 = javaLanguage.getVersion("20");
+        LanguageVersion java20p = javaLanguage.getVersion("20-preview");
 
-        Assert.assertTrue("java16-preview should be greater than java16", java16p.compareTo(java16) > 0);
+        Assert.assertTrue("java20-preview should be greater than java20", java20p.compareTo(java20) > 0);
     }
 
     @Test

@@ -945,7 +945,21 @@ public class JavaParserDecoratedVisitor implements JavaParserVisitor {
 
     @Experimental
     @Override
-    public Object visit(ASTGuardedPattern node, Object data) {
+    public Object visit(ASTSwitchGuard node, Object data) {
+        visitor.visit(node, data);
+        return visit((JavaNode) node, data);
+    }
+
+    @Experimental
+    @Override
+    public Object visit(ASTRecordPattern node, Object data) {
+        visitor.visit(node, data);
+        return visit((JavaNode) node, data);
+    }
+
+    @Experimental
+    @Override
+    public Object visit(ASTComponentPatternList node, Object data) {
         visitor.visit(node, data);
         return visit((JavaNode) node, data);
     }

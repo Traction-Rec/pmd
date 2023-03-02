@@ -27,7 +27,8 @@ The tool comes with a rather extensive help text, simply running with `--help`!
     %}
     {% include custom/cli_option_row.html options="--dir,-d"
                option_arg="path"
-               description="Root directory for the analyzed sources."
+               description="Root directory for sources to be analyzed. This can be a single file name, a directory,
+                            or a jar or zip file containing the sources."
                required="yes"
     %}
     {% include custom/cli_option_row.html options="--format,-f"
@@ -76,32 +77,45 @@ The tool comes with a rather extensive help text, simply running with `--help`!
     %}
     {% include custom/cli_option_row.html options="--file-list"
                option_arg="filepath"
-               description="Path to file containing a comma delimited list of files to analyze.
+               description="Path to file containing a list of files to analyze, one path per line.
                             If this is given, then you don't need to provide `--dir`."
     %}
     {% include custom/cli_option_row.html options="--force-language"
                option_arg="lang"
                description="Force a language to be used for all input files, irrespective of
-                            filenames. When using this option, the automatic language selection
-                            by extension is disabled and all files are tried to be parsed with
+                            file names. When using this option, the automatic language selection
+                            by extension is disabled and PMD tries to parse all files with
                             the given language `&lt;lang&gt;`. Parsing errors are ignored and unparsable files
                             are skipped.
                             
+                            <p>Use `--use-version` to specify the language version to use, if it is not the default.</p>
+
                             <p>This option allows to use the xml language for files, that don't
                             use xml as extension. See [example](#analyze-other-xml-formats) below.</p>"
     %}
     {% include custom/cli_option_row.html options="--ignore-list"
                option_arg="filepath"
-               description="Path to file containing a comma delimited list of files to ignore.
+               description="Path to file containing a list of files to ignore, one path per line.
                             This option can be combined with `--dir` and `--file-list`.
-                            This ignore list takes precedence over any files in the filelist."
+                            This ignore list takes precedence over any files in the file-list."
     %}
     {% include custom/cli_option_row.html options="--help,-h,-H"
                description="Display help on usage."
     %}
+    {% include custom/cli_option_row.html options="--use-version"
+               option_arg="lang-version"
+               description="The specific language version PMD should use when parsing source code for a given language.
+                            <p>Values are in the format of *language-version*.</p>
+                            <p>This option can be repeated to configure several languages for the same run.</p>
+                            <p>Note that this option does not change how languages are assigned to files.
+                            It only changes something if the project you analyze contains some files that PMD detects as the given language.
+                            Language detection is only influenced by file extensions and the `--force-language` option.</p>
+                            <p>See also [Supported Languages](#supported-languages).</p>"
+    %}
     {% include custom/cli_option_row.html options="-language,-l"
                option_arg="lang"
-               description="Specify the language PMD should use. Used together with `-version`. See also [Supported Languages](#supported-languages)."
+               description="Specify the language PMD should use. Used together with `-version`. See also [Supported Languages](#supported-languages).
+                    <p><span class=\"label label-default\">Deprecated</span> since PMD 6.52.0. Use `--use-version` instead.</p>"
     %}
     {% include custom/cli_option_row.html options="--minimum-priority,-min"
                option_arg="num"
@@ -120,12 +134,21 @@ The tool comes with a rather extensive help text, simply running with `--help`!
                description="Specifies a property for the report renderer. The option can be specified several times."
                default="[]"
     %}
+    {% include custom/cli_option_row.html options="--relativize-paths-with,-z"
+               option_arg="path"
+               description="Path relative to which directories are rendered in the report. This option allows
+                    shortening directories in the report; without it, paths are rendered as mentioned in the source directory (option \"--dir\").
+                    The option can be repeated, in which case the shortest relative path will be used.
+                    If the root path is mentioned (e.g. \"/\" or \"C:\\\"), then the paths will be rendered as absolute.
+                    This option replaces `--short-names` since PMD 6.54.0."
+    %}
     {% include custom/cli_option_row.html options="--report-file,-r"
                option_arg="path"
                description="Path to a file to which report output is written. The file is created if it does not exist. If this option is not specified, the report is rendered to standard output."
     %}
     {% include custom/cli_option_row.html options="--short-names"
-               description="Prints shortened filenames in the report."
+               description="Prints shortened filenames in the report.
+                    <p><span class=\"label label-default\">Deprecated</span> since PMD 6.54.0. Use `--relativize-paths-with` instead.</p>"
     %}
     {% include custom/cli_option_row.html options="--show-suppressed"
                description="Causes the suppressed rule violations to be added to the report."
@@ -154,7 +177,8 @@ The tool comes with a rather extensive help text, simply running with `--help`!
     %}
     {% include custom/cli_option_row.html options="-version,-v"
                option_arg="version"
-               description="Specify the version of a language PMD should use. Used together with `-language`. See also [Supported Languages](#supported-languages)."
+               description="Specify the version of a language PMD should use. Used together with `-language`. See also [Supported Languages](#supported-languages).
+                    <p><span class=\"label label-default\">Deprecated</span> since PMD 6.52.0. Use `--use-version` instead.</p>"
     %}
 </table>
 
@@ -165,8 +189,22 @@ if you want to analyze a project, that uses one of OpenJDK's [Preview Language F
 
 Just set the environment variable `PMD_JAVA_OPTS` before executing PMD, e.g.
 
-    export PMD_JAVA_OPTS="--enable-preview"
-    ./run.sh pmd -d ../../../src/main/java/ -f text -R rulesets/java/quickstart.xml
+```shell
+export PMD_JAVA_OPTS="--enable-preview"
+./run.sh pmd -d ../../../src/main/java/ -f text -R rulesets/java/quickstart.xml
+```
+
+## Additional runtime classpath
+
+If you develop custom rules and package them as a jar file, you need to add it to PMD's runtime classpath.
+You can either copy the jar file into the `lib/` subfolder alongside the other jar files, that are in PMD's
+standard distribution.
+
+Or you can set the environment variable `CLASSPATH` before starting PMD, e.g.
+
+```shell
+CLASSPATH=custom-rule-example.jar ./run.sh pmd -d ../../../src/main/java/ -f text -R myrule.xml
+```
 
 ## Exit Status
 
@@ -184,32 +222,33 @@ This behavior has been introduced to ease PMD integration into scripts or hooks,
 
 The language is determined automatically by PMD from the file extensions. Some languages such as "Java"
 however support multiple versions. The default version will be used, which is usually the latest supported
-version. If you want to use an older version, so that e.g. rules, that suggest usage of language features,
-that are not available yet, won't be executed, you need to specify a specific version via the `-language`
-and `-version` parameter.
+non-preview version. If you want to use an older version, so that e.g. rules that suggest usage of language features
+that are not available yet won't be executed, you need to specify a specific version via the `--use-version`
+parameter.
 
 These parameters are irrelevant for languages that don't support different versions.
 
 Example:
 
 ``` shell
-./run.sh pmd -d src/main/java -f text -R rulesets/java/quickstart.xml -language java -version 8
+./run.sh pmd -d src/main/java -f text -R rulesets/java/quickstart.xml --use-version java-1.8
 ```
 
 *   [apex](pmd_rules_apex.html) (Salesforce Apex)
-*   [java](pmd_rules_java.html)
-    *   Supported Versions: 1.3, 1.4, 1.5, 5, 1.6, 6, 1.7, 7, 1.8, 8, 9, 1.9, 10, 1.10, 11, 12,
-        13, 14, 15, 16, 16-preview, 17 (default), 17-preview
 *   [ecmascript](pmd_rules_ecmascript.html) (JavaScript)
+*   [html](pmd_rules_html.html)
+*   [java](pmd_rules_java.html)
+    *   [Supported Versions](pmd_languages_java.html)
 *   [jsp](pmd_rules_jsp.html)
 *   [modelica](pmd_rules_modelica.html)
 *   [plsql](pmd_rules_plsql.html)
+*   [pom](pmd_rules_pom.html) (Maven POM)
 *   [scala](pmd_rules_scala.html)
     *   Supported Versions: 2.10, 2.11, 2.12, 2.13 (default)
 *   [vf](pmd_rules_vf.html) (Salesforce VisualForce)
 *   [vm](pmd_rules_vm.html) (Apache Velocity)
-*   [xml and xsl](pmd_rules_xml.html)
-
+*   [xml](pmd_rules_xml.html)
+*   [xsl](pmd_rules_xsl.html)
 
 ## Available Report Formats
 

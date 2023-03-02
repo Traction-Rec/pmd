@@ -36,6 +36,7 @@ public final class TypeInferenceResolver {
 
     }
 
+    @SuppressWarnings("PMD.ReturnEmptyCollectionRatherThanNull")
     public static List<JavaTypeDefinition> inferTypes(List<Constraint> constraints, List<Bound> bounds,
                                                       List<Variable> variables) {
 
@@ -233,7 +234,9 @@ public final class TypeInferenceResolver {
             for (Variable var : variablesToResolve) {
                 List<JavaTypeDefinition> lowerBounds = getLowerBoundsOf(var, bounds);
                 // TODO: should call incorporation
-                instantiations.put(var, lub(lowerBounds));
+                if (!lowerBounds.isEmpty()) {
+                    instantiations.put(var, lub(lowerBounds));
+                }
             }
 
             uninstantiatedVariables.removeAll(variablesToResolve);

@@ -915,4 +915,55 @@ public class U {
 }
         ]]></code>
     </test-code>
+
+    <test-code>
+        <description>[java] UnnecessaryImport false positive for on-demand imports of non-static nested classes</description>
+        <expected-problems>0</expected-problems>
+        <code><![CDATA[
+package net.sourceforge.pmd.lang.java.rule.codestyle.unnecessaryimport.package1;
+
+import net.sourceforge.pmd.lang.java.rule.codestyle.unnecessaryimport.package2.C.*; // SUPPRESS CHECKSTYLE needed for test case
+
+public class U {
+    IC c;
+}
+        ]]></code>
+    </test-code>
+
+    <test-code>
+        <description>[java] UnnecessaryImport false positive for static on-demand imports of static nested classes</description>
+        <expected-problems>0</expected-problems>
+        <code><![CDATA[
+package net.sourceforge.pmd.lang.java.rule.codestyle.unnecessaryimport.package1;
+
+import static net.sourceforge.pmd.lang.java.rule.codestyle.unnecessaryimport.package2.C.*; // SUPPRESS CHECKSTYLE needed for test case
+
+public class U {
+    ISC sc;
+}
+        ]]></code>
+    </test-code>
+
+    <test-code>
+        <description>Necessary imports for @snippet tags introduced with JEP 413 in Java 18</description>
+        <expected-problems>0</expected-problems>
+        <code><![CDATA[
+import java.math.BigDecimal;
+import java.util.ArrayList;
+
+/**
+ * {@snippet :
+ *    BigDecimal n = new BigDecimal("10.0"); // @link substring="BigDecimal" target="BigDecimal"
+ * }
+ *
+ * <p>Other example:
+ * {@snippet :
+ *    Sample.add(this); // @link target="ArrayList#add(Object)"
+ * }
+ */
+public class Sample {
+    // ...
+}
+        ]]></code>
+    </test-code>
 </test-data>

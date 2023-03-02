@@ -4,6 +4,7 @@
 
 package net.sourceforge.pmd;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
+import org.hamcrest.MatcherAssert;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
@@ -149,6 +151,19 @@ public class RuleSetFactoryTest {
     }
 
     @Test
+    public void testSingleRuleEmptyRef() throws RuleSetNotFoundException {
+        RuleSet rs = loadRuleSet(SINGLE_RULE_EMPTY_REF);
+        assertEquals(1, rs.size());
+
+        MatcherAssert.assertThat(logging.getLog(), containsString("Empty ref attribute in ruleset 'test'"));
+
+        Rule r = rs.getRules().iterator().next();
+        assertEquals("MockRuleName", r.getName());
+        assertEquals("net.sourceforge.pmd.lang.rule.MockRule", r.getRuleClass());
+        assertEquals("avoid the mock rule", r.getMessage());
+    }
+
+    @Test
     public void testMultipleRules() throws RuleSetNotFoundException {
         RuleSet rs = loadRuleSet(MULTIPLE_RULES);
         assertEquals(2, rs.size());
@@ -170,7 +185,7 @@ public class RuleSetFactoryTest {
     public void testProps() throws RuleSetNotFoundException {
         Rule r = loadFirstRule(PROPERTIES);
         assertEquals("bar", r.getProperty((PropertyDescriptor<String>) r.getPropertyDescriptor("fooString")));
-        assertEquals(new Integer(3), r.getProperty((PropertyDescriptor<Integer>) r.getPropertyDescriptor("fooInt")));
+        assertEquals(Integer.valueOf(3), r.getProperty((PropertyDescriptor<Integer>) r.getPropertyDescriptor("fooInt")));
         assertTrue(r.getProperty((PropertyDescriptor<Boolean>) r.getPropertyDescriptor("fooBoolean")));
         assertEquals(3.0d, r.getProperty((PropertyDescriptor<Double>) r.getPropertyDescriptor("fooDouble")), 0.05);
         assertNull(r.getPropertyDescriptor("BuggleFish"));
@@ -205,6 +220,28 @@ public class RuleSetFactoryTest {
         PropertyDescriptor<List<String>> prop = (PropertyDescriptor<List<String>>) r.getPropertyDescriptor("packageRegEx");
         List<String> values = r.getProperty(prop);
         assertEquals(Arrays.asList("com.aptsssss", "com.abc"), values);
+    }
+
+    /**
+     * Verifies that empty values for properties are possible. Empty values can be used to disable a property.
+     * However, the semantic depends on the concrete rule implementation.
+     *
+     * @see <a href="https://github.com/pmd/pmd/issues/4279">[java] TestClassWithoutTestCases - can not set test pattern to empty #4279</a>
+     */
+    @Test
+    public void testEmptyStringProperty() throws RuleSetNotFoundException {
+        Rule r = loadFirstRule("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<ruleset name=\"test\">\n "
+                + " <description>ruleset desc</description>\n     "
+                + "<rule name=\"myRule\" message=\"Do not place to this package. Move to \n{0} package/s"
+                + " instead.\" \n" + "class=\"net.sourceforge.pmd.RuleWithProperties\" language=\"dummy\">\n"
+                + "         <description>Please move your class to the right folder(rest \nfolder)</description>\n"
+                + "         <priority>2</priority>\n         <properties>\n             <property name=\"stringProperty\""
+                + " value=\"\" />\n"
+                + "         </properties></rule>" + "</ruleset>");
+        PropertyDescriptor<String> prop = (PropertyDescriptor<String>) r.getPropertyDescriptor("stringProperty");
+        String value = r.getProperty(prop);
+        assertEquals("", value);
     }
 
     @Test
@@ -927,6 +964,23 @@ public class RuleSetFactoryTest {
     }
 
     @Test
+    public void testDeprecatedRulesetReferenceProducesWarning() throws Exception {
+        RuleSetReferenceId ref = createRuleSetReferenceId(
+                "<?xml version=\"1.0\"?>\n" + "<ruleset \n"
+                        + "    name='foo'"
+                        + "    xmlns=\"http://pmd.sourceforge.net/ruleset/2.0.0\"\n"
+                        + "    xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
+                        + "    xsi:schemaLocation=\"http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd\">\n"
+                        + "  <description>Custom ruleset for tests</description>\n"
+                        + "  <rule ref=\"dummy-basic\"/>\n"
+                        + "  </ruleset>\n");
+        RuleSetLoader ruleSetFactory = new RuleSetLoader().warnDeprecated(true);
+        ruleSetFactory.loadFromResource(ref);
+
+        MatcherAssert.assertThat(logging.getLog(), containsString("Ruleset reference 'dummy-basic' uses a deprecated form, use 'rulesets/dummy/basic.xml' instead"));
+    }
+
+    @Test
     public void testMissingRuleSetDescriptionIsWarning() throws Exception {
         RuleSetReferenceId ref = createRuleSetReferenceId(
                 "<?xml version=\"1.0\"?>\n" + "<ruleset name=\"then name\"\n"
@@ -1060,6 +1114,18 @@ public class RuleSetFactoryTest {
         + "<description>testdesc</description>\n"
         + "<rule \n"
         + "language=\"dummy\" \n"
+        + "name=\"MockRuleName\" \n"
+        + "message=\"avoid the mock rule\" \n"
+        + "class=\"net.sourceforge.pmd.lang.rule.MockRule\">\n"
+        + "<priority>3</priority>\n"
+        + "</rule></ruleset>";
+
+    private static final String SINGLE_RULE_EMPTY_REF = "<?xml version=\"1.0\"?>\n"
+        + "<ruleset name=\"test\">\n"
+        + "<description>testdesc</description>\n"
+        + "<rule \n"
+        + "language=\"dummy\" \n"
+        + "ref=\"\" \n"
         + "name=\"MockRuleName\" \n"
         + "message=\"avoid the mock rule\" \n"
         + "class=\"net.sourceforge.pmd.lang.rule.MockRule\">\n"

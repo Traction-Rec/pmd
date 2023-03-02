@@ -25,10 +25,13 @@ public class ParserCornersTest {
     private static final String MULTICATCH = "public class Foo { public void bar() { "
         + "try { System.out.println(); } catch (RuntimeException | IOException e) {} } }";
     private final JavaParsingHelper java = JavaParsingHelper.WITH_PROCESSING.withResourceContext(ParserCornersTest.class);
+    private final JavaParsingHelper java9 = java.withDefaultVersion("9");
     private final JavaParsingHelper java8 = java.withDefaultVersion("1.8");
     private final JavaParsingHelper java4 = java.withDefaultVersion("1.4");
     private final JavaParsingHelper java5 = java.withDefaultVersion("1.5");
     private final JavaParsingHelper java7 = java.withDefaultVersion("1.7");
+    private final JavaParsingHelper java15 = java.withDefaultVersion("15");
+    
     @Rule
     public ExpectedException expect = ExpectedException.none();
 
@@ -90,6 +93,43 @@ public class ParserCornersTest {
         java4.parse(CAST_LOOKAHEAD_PROBLEM);
     }
 
+    @Test
+    public final void testTryWithResourcesConcise() {
+        // https://github.com/pmd/pmd/issues/3697
+        java9.parse("import java.io.InputStream;\n"
+                        + "public class Foo {\n"
+                        + "    public InputStream in;\n"
+                        + "    public void bar() {\n"
+                        + "        Foo f = this;\n"
+                        + "        try (f.in) {\n"
+                        + "        }\n"
+                        + "    }\n"
+                        + "}");
+    }
+
+    @Test
+    public final void testTryWithResourcesThis() {
+        // https://github.com/pmd/pmd/issues/3697
+        java9.parse("import java.io.InputStream;\n"
+                        + "public class Foo {\n"
+                        + "    public InputStream in;\n"
+                        + "    public void bar() {\n"
+                        + "        try (this.in) {\n"
+                        + "        }\n"
+                        + "    }\n"
+                        + "}");
+    }
+
+    @Test
+    public final void testTextBlockWithQuotes() {
+        // https://github.com/pmd/pmd/issues/4364
+        java15.parse("public class Foo {\n"
+                + "  private String content = \"\"\"\n"
+                + "    <div class=\"invalid-class></div>\n"
+                + "  \"\"\";\n"
+                + "}");
+    }
+    
     /**
      * Tests a specific generic notation for calling methods. See:
      * https://jira.codehaus.org/browse/MPMD-139
@@ -98,6 +138,12 @@ public class ParserCornersTest {
     public void testGenericsProblem() {
         java5.parse(GENERICS_PROBLEM);
         java7.parse(GENERICS_PROBLEM);
+    }
+
+    @Test
+    public void testUnicodeIndent() {
+        // https://github.com/pmd/pmd/issues/3423
+        java7.parseResource("UnicodeIdentifier.java");
     }
 
     @Test
@@ -114,10 +160,10 @@ public class ParserCornersTest {
     public void testParsersCases18() throws Exception {
         ASTCompilationUnit cu = java8.parseResource("ParserCornerCases18.java");
 
-        Assert.assertEquals(21, cu.findChildNodesWithXPath("//FormalParameter").size());
-        Assert.assertEquals(4,
+        Assert.assertEquals(24, cu.findChildNodesWithXPath("//FormalParameter").size());
+        Assert.assertEquals(5,
                 cu.findChildNodesWithXPath("//FormalParameter[@ExplicitReceiverParameter='true']").size());
-        Assert.assertEquals(17,
+        Assert.assertEquals(19,
                 cu.findChildNodesWithXPath("//FormalParameter[@ExplicitReceiverParameter='false']").size());
     }
 

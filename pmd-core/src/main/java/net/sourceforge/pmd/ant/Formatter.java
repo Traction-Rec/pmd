@@ -18,16 +18,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.commons.lang3.reflect.MethodUtils;
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.Parameter;
 
 import net.sourceforge.pmd.Report;
+import net.sourceforge.pmd.annotation.InternalApi;
 import net.sourceforge.pmd.renderers.Renderer;
 import net.sourceforge.pmd.renderers.RendererFactory;
+import net.sourceforge.pmd.util.IOUtil;
 
 public class Formatter {
 
@@ -59,10 +61,14 @@ public class Formatter {
         this.parameters.add(parameter);
     }
 
+    @Deprecated
+    @InternalApi
     public Renderer getRenderer() {
         return renderer;
     }
 
+    @Deprecated
+    @InternalApi
     public void start(String baseDir) {
 
         Properties properties = createProperties();
@@ -104,12 +110,13 @@ public class Formatter {
             }
             renderer = createRenderer();
             renderer.setWriter(writer);
-            renderer.start();
         } catch (IOException ioe) {
             throw new BuildException(ioe.getMessage(), ioe);
         }
     }
 
+    @Deprecated
+    @InternalApi
     public void end(Report errorReport) {
         try {
             renderer.renderFileReport(errorReport);
@@ -124,6 +131,8 @@ public class Formatter {
         }
     }
 
+    @Deprecated
+    @InternalApi
     public boolean isNoOutputSupplied() {
         return toFile == null && !toConsole;
     }
@@ -186,8 +195,8 @@ public class Formatter {
             isOnError = false;
         } finally {
             if (isOnError) {
-                IOUtils.closeQuietly(output);
-                IOUtils.closeQuietly(writer);
+                IOUtil.closeQuietly(output);
+                IOUtil.closeQuietly(writer);
             }
         }
         return writer;
@@ -230,5 +239,14 @@ public class Formatter {
             // fall-through
         }
         return null;
+    }
+
+    @Deprecated
+    @InternalApi
+    public Renderer toRenderer(final Project project, List<String> inputPaths) {
+        this.start(project.getBaseDir().toString());
+        Renderer renderer = getRenderer();
+        renderer.setUseShortNames(inputPaths);
+        return renderer;
     }
 }

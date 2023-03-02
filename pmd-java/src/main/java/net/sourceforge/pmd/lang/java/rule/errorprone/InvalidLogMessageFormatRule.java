@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,6 +48,14 @@ public class InvalidLogMessageFormatRule extends AbstractJavaRule {
             Pattern.compile("(\\{\\})|(%(?:\\d\\$)?(?:\\w+)?(?:\\d+)?(?:\\.\\d+)?\\w)");
 
     private static final Map<String, Set<String>> LOGGERS;
+
+    /**
+     * Whitelisted methods of net.logstash.logback.argument.StructuredArguments
+     */
+    private static final Set<String> STRUCTURED_ARGUMENTS_METHODS = Collections.unmodifiableSet(new HashSet<>(
+            Arrays.asList("a", "array", "defer", "e",
+                    "entries", "f", "fields", "keyValue",
+                    "kv", "r", "raw", "v", "value")));
 
     static {
         Map<String, Set<String>> loggersMap = new HashMap<>();
@@ -116,14 +125,23 @@ public class InvalidLogMessageFormatRule extends AbstractJavaRule {
         final List<ASTExpression> argumentList = parentNode.getFirstChildOfType(ASTPrimarySuffix.class)
                 .getFirstDescendantOfType(ASTArgumentList.class).findChildrenOfType(ASTExpression.class);
 
-        if (argumentList.get(0).getType() != null && !argumentList.get(0).getType().equals(String.class)) {
-            if (argumentList.size() == 1) {
-                // no need to check for message params in case no string and no params found
-                return data;
+        // remove any arguments before the string message - these might be method calls for
+        // logstash markers or structured arguments
+        // this also removes any non-string value, e.g. a slf4j-Marker
+        // if the type cannot be determined, it is considered not to be a string...
+        Iterator<ASTExpression> iterator = argumentList.iterator();
+        while (iterator.hasNext()) {
+            ASTExpression argument = iterator.next();
+            if (!TypeTestUtil.isA(String.class, argument)) {
+                iterator.remove();
             } else {
-                // ignore the first argument if it is a known non-string value, e.g. a slf4j-Marker
-                argumentList.remove(0);
+                break;
             }
+        }
+
+        if (argumentList.isEmpty()) {
+            // no need to check for message params in case no string message found
+            return data;
         }
 
         // remove the message parameter
@@ -144,6 +162,12 @@ public class InvalidLogMessageFormatRule extends AbstractJavaRule {
         // But only, if it is not used as a placeholder argument
         if (argumentList.size() > expectedArguments) {
             removeThrowableParam(argumentList);
+        }
+        
+        // remove any logstash structured arguments at the end
+        // but only, if there are not enough placeholders
+        if (argumentList.size() > expectedArguments) {
+            removePotentialStructuredArguments(argumentList.size() - expectedArguments, argumentList);
         }
 
         int providedArguments = argumentList.size();
@@ -218,11 +242,16 @@ public class InvalidLogMessageFormatRule extends AbstractJavaRule {
                 varName = name.getImage();
             }
         }
+        if (varName == null) {
+            return false;
+        }
+
         Scope scope = prefix == null ? null : prefix.getScope();
         while (scope != null) {
             // Try recursively to find the expected NameDeclaration
             for (NameDeclaration decl : scope.getDeclarations().keySet()) {
-                if (decl.getName().equals(varName)) {
+                // anonymous classes have no names, so decl.getName() can be null
+                if (varName.equals(decl.getName())) {
                     // If the last parameter is a lambda parameter, then we also ignore it - regardless of the type.
                     // This is actually a workaround, since type resolution doesn't resolve the types of lambda parameters.
                     return decl.getNode().getParent() instanceof ASTLambdaExpression;
@@ -238,13 +267,40 @@ public class InvalidLogMessageFormatRule extends AbstractJavaRule {
                 + params.size();
     }
 
-    private boolean isStringFormatCall(ASTExpression node) {
-        if (node.getNumChildren() > 0 && node.getChild(0) instanceof ASTPrimaryExpression
-                && node.getChild(0).getNumChildren() > 0 && node.getChild(0).getChild(0) instanceof ASTPrimaryPrefix
-                && node.getChild(0).getChild(0).getNumChildren() > 0 && node.getChild(0).getChild(0).getChild(0) instanceof ASTName) {
-            String name = node.getChild(0).getChild(0).getChild(0).getImage();
+    /**
+     * Checks for {@code String.format("%s", x)} and {@code "%s".formatted(x)} calls.
+     */
+    private boolean isStringFormatCall(ASTExpression expression) {
+        ASTPrimaryExpression primaryExpression = null;
+        ASTPrimaryPrefix primaryPrefix = null;
+
+        // Check beginning of tree: Expression/PrimaryExpression
+        if (expression.getNumChildren() > 0 && expression.getChild(0) instanceof ASTPrimaryExpression) {
+            primaryExpression = (ASTPrimaryExpression) expression.getChild(0);
+        }
+
+        if (primaryExpression != null
+                && primaryExpression.getNumChildren() > 0 && primaryExpression.getChild(0) instanceof ASTPrimaryPrefix) {
+            primaryPrefix = (ASTPrimaryPrefix) primaryExpression.getChild(0);
+        }
+
+        // check for static String::format calls
+        // Tree: Expression/PrimaryExpression/PrimaryPrefix/Name
+        if (primaryPrefix != null && primaryPrefix.getNumChildren() > 0 && primaryPrefix.getChild(0) instanceof ASTName) {
+            String name = primaryPrefix.getChild(0).getImage();
 
             return "String.format".equals(name) || formatIsStringFormat && "format".equals(name);
+        }
+
+        // check for String::formatted calls - this method has been added with Java 15
+        // Tree: //Expression/PrimaryExpression[PrimaryPrefix/Literal[@StringLiteral = true()]]/PrimarySuffix[@Image = 'formatted']
+        if (primaryPrefix != null && primaryPrefix.getNumChildren() > 0 && primaryPrefix.getChild(0) instanceof ASTLiteral) {
+            ASTLiteral literal = (ASTLiteral) primaryPrefix.getChild(0);
+            if (literal.isStringLiteral()
+                && primaryExpression.getNumChildren() > 1 && primaryExpression.getChild(1) instanceof ASTPrimarySuffix) {
+                ASTPrimarySuffix primarySuffix = (ASTPrimarySuffix) primaryExpression.getChild(1);
+                return "formatted".equals(primarySuffix.getImage());
+            }
         }
         return false;
     }
@@ -318,5 +374,51 @@ public class InvalidLogMessageFormatRule extends AbstractJavaRule {
             }
         }
         return stringLiterals;
+    }
+
+    /**
+     * Removes up to {@code maxArgumentsToRemove} arguments from the end of the {@code argumentList},
+     * if the argument is a method call to one of the whitelisted StructuredArguments methods.
+     *
+     * @param maxArgumentsToRemove
+     * @param argumentList
+     */
+    private void removePotentialStructuredArguments(int maxArgumentsToRemove, List<ASTExpression> argumentList) {
+        int removed = 0;
+        while (!argumentList.isEmpty() && removed < maxArgumentsToRemove) {
+            int lastIndex = argumentList.size() - 1;
+            ASTExpression argument = argumentList.get(lastIndex);
+            if (isStructuredArgumentMethodCall(argument)) {
+                argumentList.remove(lastIndex);
+                removed++;
+            } else {
+                // stop if something else is encountered
+                break;
+            }
+        }
+    }
+
+    /*
+     * └─ Expression == argument
+     *    └─ PrimaryExpression
+     *       ├─ PrimaryPrefix
+     *       │  └─ Name: eg. "keyValue" or "StructuredArguments.keyValue"
+     *       └─ PrimarySuffix
+     *          └─ Arguments
+     */
+    private boolean isStructuredArgumentMethodCall(ASTExpression argument) {
+        if (argument.getNumChildren() == 1 && argument.getChild(0) instanceof ASTPrimaryExpression) {
+            ASTPrimaryExpression primary = (ASTPrimaryExpression) argument.getChild(0);
+            if (primary.getNumChildren() == 2 && primary.getChild(1) instanceof ASTPrimarySuffix) {
+                ASTPrimaryPrefix prefix = (ASTPrimaryPrefix) primary.getChild(0);
+                ASTPrimarySuffix suffix = (ASTPrimarySuffix) primary.getChild(1);
+                if (suffix.isArguments() && prefix.getNumChildren() == 1 && prefix.getChild(0) instanceof ASTName) {
+                    ASTName name = (ASTName) prefix.getChild(0);
+                    return name.getImage().startsWith("StructuredArguments.")
+                        || STRUCTURED_ARGUMENTS_METHODS.contains(name.getImage());
+                }
+            }
+        }
+        return false;
     }
 }

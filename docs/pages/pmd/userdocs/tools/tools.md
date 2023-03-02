@@ -31,6 +31,17 @@ Codiga uses PMD to check Java and Apex code.
 * Homepage: [https://www.codiga.io](https://www.codiga.io)
 * Documentation: [https://doc.codiga.io](https://doc.codiga.io)
 
+### GitHub Actions
+
+PMD provides its own GitHub Action, that can be integrated in custom workflows.
+
+It can execute PMD with your own ruleset against your project. It creates a [SARIF](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
+report which is uploaded as a build artifact. Furthermore the build can be failed based on the number of violations.
+
+The action can also be used as a code scanner to create "Code scanning alerts".
+
+* Homepage: [pmd/pmd-github-action](https://github.com/pmd/pmd-github-action)
+
 
 ## IDE Integrations
 
@@ -186,7 +197,7 @@ To install the PMD plugin for Eclipse:
 *   Start Eclipse and open a project
 *   Select "Help"->"Software Updates"->"Find and Install"
 *   Click "Next", then click "New remote site"
-*   Enter "PMD" into the Name field and <https://dl.bintray.com/pmd/pmd-eclipse-plugin/updates/> into the URL field
+*   Enter "PMD" into the Name field and <https://pmd.github.io/pmd-eclipse-plugin-p2-site/> into the URL field
 *   Click through the rest of the dialog boxes to install the plugin
 
 Alternatively, you can download the latest zip file and follow the above procedures
